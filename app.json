@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Havault",
+    "slug": "havault",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/1741520661019.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "havault",
+    "splash": {
+      "image": "./assets/1741520661019.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.metaworld.havault"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/1741520661019.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.metaworld.havault"
+    },
+    "web": {
+      "favicon": "./assets/1741520661019.png"
+    },
+    "description": "Secure password manager with encrypted local storage",
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

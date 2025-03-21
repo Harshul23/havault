@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
@@ -120,6 +120,14 @@ const RegisterScreen = () => {
     }
   };
 
+  // Add isMounted ref to prevent animations on unmounted components
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
@@ -128,222 +136,228 @@ const RegisterScreen = () => {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Animated.View 
-              entering={FadeInDown.duration(600).springify()}
-              style={styles.logoContainer}
-            >
+            {isMounted.current && (
               <Animated.View 
-                entering={FadeInDown.delay(200).duration(1000)}
-                style={[styles.logoBackground, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]}
+                entering={FadeInDown.duration(600).springify()}
+                style={styles.logoContainer}
               >
-                <FontAwesome5 name="shield-alt" size={48} color="white" />
+                {isMounted.current && (
+                  <Animated.View 
+                    entering={FadeInDown.delay(200).duration(1000)}
+                    style={[styles.logoBackground, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]}
+                  >
+                    <FontAwesome5 name="shield-alt" size={48} color="white" />
+                  </Animated.View>
+                )}
+                <Text style={[styles.logoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                  Havault
+                </Text>
+                <Text style={[styles.logoSubtext, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  Create Your Account
+                </Text>
               </Animated.View>
-              <Text style={[styles.logoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                Havault
-              </Text>
-              <Text style={[styles.logoSubtext, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                Create Your Account
-              </Text>
-            </Animated.View>
+            )}
             
             {/* Form Inputs - with rounded corners */}
-            <Animated.View 
-              entering={FadeInUp.delay(400).duration(600).springify()}
-              style={styles.formContainer}
-            >
-              <View style={styles.inputContainer}>
-                <View style={[
-                  styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
-                ]}>
-                  <FontAwesome5 
-                    name="user" 
-                    size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput 
-                    style={[
-                      styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
-                    ]}
-                    placeholder="Full Name" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
-                    value={name}
-                    onChangeText={setName}
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.inputContainer}>
-                <View style={[
-                  styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
-                ]}>
-                  <FontAwesome5 
-                    name="envelope" 
-                    size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput 
-                    style={[
-                      styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
-                    ]}
-                    placeholder="Email" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
-              </View>
-            
-              <View style={styles.inputContainer}>
-                <View style={[
-                  styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
-                ]}>
-                  <FontAwesome5 
-                    name="lock" 
-                    size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
-                    ]}
-                    placeholder="Password" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity
-                    style={styles.passwordToggle}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
+            {isMounted.current && (
+              <Animated.View 
+                entering={FadeInUp.delay(400).duration(600).springify()}
+                style={styles.formContainer}
+              >
+                <View style={styles.inputContainer}>
+                  <View style={[
+                    styles.inputWrapper,
+                    { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
+                  ]}>
                     <FontAwesome5 
-                      name={showPassword ? 'eye-slash' : 'eye'} 
+                      name="user" 
                       size={16} 
                       color={isDark ? '#AAAAAA' : '#999999'} 
+                      style={styles.inputIcon} 
                     />
-                  </TouchableOpacity>
+                    <TextInput 
+                      style={[
+                        styles.input,
+                        { color: isDark ? '#FFFFFF' : '#333333' }
+                      ]}
+                      placeholder="Full Name" 
+                      placeholderTextColor={isDark ? '#666666' : '#999999'}
+                      value={name}
+                      onChangeText={setName}
+                    />
+                  </View>
                 </View>
-                {password && !validatePassword(password) && (
-                  <Text style={styles.errorText}>
-                    Password must be at least 8 characters
-                  </Text>
-                )}
-              </View>
+                
+                <View style={styles.inputContainer}>
+                  <View style={[
+                    styles.inputWrapper,
+                    { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
+                  ]}>
+                    <FontAwesome5 
+                      name="envelope" 
+                      size={16} 
+                      color={isDark ? '#AAAAAA' : '#999999'} 
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput 
+                      style={[
+                        styles.input,
+                        { color: isDark ? '#FFFFFF' : '#333333' }
+                      ]}
+                      placeholder="Email" 
+                      placeholderTextColor={isDark ? '#666666' : '#999999'}
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                </View>
+              
+                <View style={styles.inputContainer}>
+                  <View style={[
+                    styles.inputWrapper,
+                    { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
+                  ]}>
+                    <FontAwesome5 
+                      name="lock" 
+                      size={16} 
+                      color={isDark ? '#AAAAAA' : '#999999'} 
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        { color: isDark ? '#FFFFFF' : '#333333' }
+                      ]}
+                      placeholder="Password" 
+                      placeholderTextColor={isDark ? '#666666' : '#999999'}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.passwordToggle}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <FontAwesome5 
+                        name={showPassword ? 'eye-slash' : 'eye'} 
+                        size={16} 
+                        color={isDark ? '#AAAAAA' : '#999999'} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {password && !validatePassword(password) && (
+                    <Text style={styles.errorText}>
+                      Password must be at least 8 characters
+                    </Text>
+                  )}
+                </View>
 
-              <View style={styles.inputContainer}>
-                <View style={[
-                  styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
-                ]}>
-                  <FontAwesome5 
-                    name="lock" 
-                    size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
-                    ]}
-                    placeholder="Confirm Password" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                  />
-                  <TouchableOpacity
-                    style={styles.passwordToggle}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
+                <View style={styles.inputContainer}>
+                  <View style={[
+                    styles.inputWrapper,
+                    { backgroundColor: isDark ? '#2A2A2A' : 'white', borderRadius: 12 }
+                  ]}>
                     <FontAwesome5 
-                      name={showConfirmPassword ? 'eye-slash' : 'eye'} 
+                      name="lock" 
                       size={16} 
                       color={isDark ? '#AAAAAA' : '#999999'} 
+                      style={styles.inputIcon} 
                     />
-                  </TouchableOpacity>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        { color: isDark ? '#FFFFFF' : '#333333' }
+                      ]}
+                      placeholder="Confirm Password" 
+                      placeholderTextColor={isDark ? '#666666' : '#999999'}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.passwordToggle}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      <FontAwesome5 
+                        name={showConfirmPassword ? 'eye-slash' : 'eye'} 
+                        size={16} 
+                        color={isDark ? '#AAAAAA' : '#999999'} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {confirmPassword && password !== confirmPassword && (
+                    <Text style={styles.errorText}>
+                      Passwords do not match
+                    </Text>
+                  )}
                 </View>
-                {confirmPassword && password !== confirmPassword && (
-                  <Text style={styles.errorText}>
-                    Passwords do not match
+                
+                {/* Register Button */}
+                <TouchableOpacity 
+                  style={[
+                    styles.button,
+                    { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' },
+                    isAuthenticating && { opacity: 0.7 }
+                  ]}
+                  onPress={handleRegister}
+                  disabled={isAuthenticating}
+                >
+                  {isAuthenticating ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Create Account</Text>
+                  )}
+                </TouchableOpacity>
+                
+                {/* Divider */}
+                <View style={styles.dividerContainer}>
+                  <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
+                  <Text style={[styles.dividerText, { color: isDark ? '#AAAAAA' : '#999999' }]}>
+                    OR
                   </Text>
-                )}
-              </View>
-              
-              {/* Register Button */}
-              <TouchableOpacity 
-                style={[
-                  styles.button,
-                  { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' },
-                  isAuthenticating && { opacity: 0.7 }
-                ]}
-                onPress={handleRegister}
-                disabled={isAuthenticating}
-              >
-                {isAuthenticating ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={styles.buttonText}>Create Account</Text>
-                )}
-              </TouchableOpacity>
-              
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
-                <Text style={[styles.dividerText, { color: isDark ? '#AAAAAA' : '#999999' }]}>
-                  OR
-                </Text>
-                <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
-              </View>
-              
-              {/* Google Sign Up Button */}
-              <TouchableOpacity 
-                style={[
-                  styles.socialButton,
-                  { 
-                    backgroundColor: isDark ? '#2A2A2A' : 'white',
-                    borderColor: isDark ? '#333333' : '#E0E0E0' 
-                  }
-                ]}
-                onPress={handleGoogleSignUp}
-                disabled={isAuthenticating}
-              >
-                <Image 
-                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }}
-                  style={styles.googleIcon}
-                  resizeMode="contain"
-                />
-                <Text style={[
-                  styles.socialButtonText,
-                  { color: isDark ? '#FFFFFF' : '#333333' }
-                ]}>
-                  Sign up with Google
-                </Text>
-              </TouchableOpacity>
-              
-              {/* Login Link */}
-              <View style={styles.loginContainer}>
-                <Text style={[styles.loginText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  Already have an account?
-                </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                  <Text style={[styles.loginLink, { color: isDark ? '#7B68EE' : '#6A5ACD' }]}>
-                    {' Sign In'}
+                  <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
+                </View>
+                
+                {/* Google Sign Up Button */}
+                <TouchableOpacity 
+                  style={[
+                    styles.socialButton,
+                    { 
+                      backgroundColor: isDark ? '#2A2A2A' : 'white',
+                      borderColor: isDark ? '#333333' : '#E0E0E0' 
+                    }
+                  ]}
+                  onPress={handleGoogleSignUp}
+                  disabled={isAuthenticating}
+                >
+                  <Image 
+                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={[
+                    styles.socialButtonText,
+                    { color: isDark ? '#FFFFFF' : '#333333' }
+                  ]}>
+                    Sign up with Google
                   </Text>
                 </TouchableOpacity>
-              </View>
-            </Animated.View>
+                
+                {/* Login Link */}
+                <View style={styles.loginContainer}>
+                  <Text style={[styles.loginText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    Already have an account?
+                  </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <Text style={[styles.loginLink, { color: isDark ? '#7B68EE' : '#6A5ACD' }]}>
+                      {' Sign In'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
         

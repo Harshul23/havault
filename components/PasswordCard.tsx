@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -7,9 +7,11 @@ import {
   Pressable
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import SwipeableRow from './SwipeableRow';
 
 interface PasswordCardProps {
   password: {
+    id: string;
     website: string;
     username: string;
     folder: string;
@@ -17,60 +19,99 @@ interface PasswordCardProps {
   };
   isDark: boolean;
   onPress: () => void;
+  onDelete?: (id: string) => void;
+  onEdit?: (id: string) => void;
 }
 
-const PasswordCard: React.FC<PasswordCardProps> = ({ password, isDark, onPress }) => {
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI when SwipeableRow fails
+      return this.props.children;
+    }
+
+    return this.props.children;
+  }
+}
+
+const PasswordCard: React.FC<PasswordCardProps> = ({ 
+  password, 
+  isDark, 
+  onPress, 
+  onDelete = () => {}, 
+  onEdit = () => {} 
+}) => {
   const cardBg = isDark ? '#2A2A2A' : 'white';
   const textColor = isDark ? '#FFFFFF' : '#333333';
-  const secondaryTextColor = isDark ? '#AAAAAA' : '#777777';
+  const secondaryTextColor = isDark ? '#AAAAAA' : '#666666';
   
-  // Get website domain for icon
-  const getDomain = (url: string): string => {
+  // Get website name for the icon
+  const getWebsiteName = () => {
     try {
-      // Try to parse the URL
-      let domain = url.toLowerCase();
-      if (!domain.startsWith('http')) {
-        domain = 'https://' + domain;
-      }
-      const hostname = new URL(domain).hostname;
-      return hostname.replace('www.', '');
+      if (!password.website) return '';
+      let website = password.website.toLowerCase();
+      if (website.startsWith('http://')) website = website.substring(7);
+      if (website.startsWith('https://')) website = website.substring(8);
+      if (website.startsWith('www.')) website = website.substring(4);
+      
+      return website.split('.')[0] || '';
     } catch (e) {
-      // If URL is invalid, just return the original
-      return url;
+      return '';
     }
   };
   
-  const domain = getDomain(password.website);
-  
-  // Get initial letter for favicon placeholder
+  // Get first letter of website for icon
   const getInitial = () => {
-    if (!domain || domain.length === 0) return '?';
-    return domain.charAt(0).toUpperCase();
+    const name = getWebsiteName();
+    return name.charAt(0).toUpperCase() || '#';
   };
   
-  // Get icon color based on domain
+  // Get a consistent color based on website name
   const getIconColor = () => {
     const colors = [
-      '#4285F4', '#EA4335', '#FBBC05', '#34A853', // Google colors
-      '#0866FF', '#CD486B', '#1DB954', '#FF9900', // Facebook, Instagram, Spotify, Amazon
-      '#1DA1F2', '#FF0000', '#7289DA', '#25D366'  // Twitter, YouTube, Discord, WhatsApp
+      '#7B68EE', '#1E90FF', '#FF69B4', '#20B2AA', '#FF7F50', 
+      '#6A5ACD', '#32CD32', '#FF4500', '#4169E1', '#8A2BE2'
     ];
     
-    // Simple hash function for domain name
-    let hash = 0;
-    for (let i = 0; i < domain.length; i++) {
-      hash = domain.charCodeAt(i) + ((hash << 5) - hash);
-    }
+    const name = getWebsiteName();
+    if (!name) return colors[0];
     
-    return colors[Math.abs(hash) % colors.length];
+    // Use char codes to create a consistent "random" index
+    const sum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const index = sum % colors.length;
+    
+    return colors[index];
   };
 
-  return (
+  // Handle delete and edit actions
+  const handleDelete = useCallback(() => {
+    if (onDelete) {
+      onDelete(password.id);
+    }
+  }, [onDelete, password.id]);
+
+  const handleEdit = useCallback(() => {
+    if (onEdit) {
+      onEdit(password.id);
+    }
+  }, [onEdit, password.id]);
+
+  // Main card content
+  const cardContent = (
     <Pressable
       style={({ pressed }) => [
         styles.card, 
         { 
-          backgroundColor: cardBg,
+          backgroundColor: isDark ? '#2A2A2A' : 'white',
           opacity: pressed ? 0.9 : 1,
           transform: [{ scale: pressed ? 0.98 : 1 }]
         }
@@ -83,10 +124,10 @@ const PasswordCard: React.FC<PasswordCardProps> = ({ password, isDark, onPress }
         </View>
         
         <View style={styles.infoContainer}>
-          <Text style={[styles.websiteText, { color: textColor }]} numberOfLines={1}>
+          <Text style={[styles.websiteText, { color: isDark ? '#FFFFFF' : '#333333' }]} numberOfLines={1}>
             {password.website}
           </Text>
-          <Text style={[styles.usernameText, { color: secondaryTextColor }]} numberOfLines={1}>
+          <Text style={[styles.usernameText, { color: isDark ? '#AAAAAA' : '#666666' }]} numberOfLines={1}>
             {password.username}
           </Text>
           <View style={styles.metaContainer}>
@@ -94,14 +135,14 @@ const PasswordCard: React.FC<PasswordCardProps> = ({ password, isDark, onPress }
               <MaterialCommunityIcons 
                 name="folder-outline" 
                 size={12} 
-                color={secondaryTextColor}
+                color={isDark ? '#AAAAAA' : '#666666'}
               />
-              <Text style={[styles.folderText, { color: secondaryTextColor }]}>
+              <Text style={[styles.folderText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
                 {password.folder}
               </Text>
             </View>
             
-            <Text style={[styles.dateText, { color: secondaryTextColor }]}>
+            <Text style={[styles.dateText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
               {new Date(password.dateAdded).toLocaleDateString()}
             </Text>
           </View>
@@ -117,26 +158,40 @@ const PasswordCard: React.FC<PasswordCardProps> = ({ password, isDark, onPress }
       </View>
     </Pressable>
   );
+
+  // Wrap in ErrorBoundary to prevent app crashes
+  return (
+    <ErrorBoundary>
+      <SwipeableRow 
+        onDelete={handleDelete} 
+        onEdit={handleEdit} 
+        isDark={isDark}
+        itemName="password"
+      >
+        {cardContent}
+      </SwipeableRow>
+    </ErrorBoundary>
+  );
 };
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
   cardContent: {
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconContainer: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -154,7 +209,7 @@ const styles = StyleSheet.create({
   websiteText: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   usernameText: {
     fontSize: 14,
@@ -177,7 +232,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   arrowContainer: {
-    marginLeft: 10,
+    marginLeft: 12,
   }
 });
 

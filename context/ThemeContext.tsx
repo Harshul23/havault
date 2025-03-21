@@ -1,64 +1,61 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext } from 'react';
+import { Appearance } from 'react-native';
 
-type ThemeType = 'light' | 'dark';
-
-interface ThemeContextProps {
-  theme: ThemeType;
-  toggleTheme: () => void;
+// Theme color palette
+interface ThemeColors {
+  primary: string;
+  background: string;
+  card: string;
+  text: string;
+  secondaryText: string;
+  border: string;
+  notification: string;
+  error: string;
+  success: string;
+  warning: string;
 }
 
+// Enhanced theme context with additional properties
+interface ThemeContextProps {
+  theme: 'dark';
+  isDark: true; // Always true as we're permanently in dark mode
+  colors: ThemeColors; // Color palette for dark theme
+}
+
+// Dark theme colors
+const darkColors: ThemeColors = {
+  primary: '#7B68EE',
+  background: '#121212',
+  card: '#1E1E1E',
+  text: '#FFFFFF',
+  secondaryText: '#AAAAAA',
+  border: '#444444',
+  notification: '#7B68EE',
+  error: '#F44336',
+  success: '#4CAF50',
+  warning: '#FF9800'
+};
+
 const ThemeContext = createContext<ThemeContextProps>({
-  theme: 'light',
-  toggleTheme: () => {},
+  theme: 'dark',
+  isDark: true,
+  colors: darkColors
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const deviceTheme = useColorScheme();
-  const [theme, setTheme] = useState<ThemeType>(deviceTheme as ThemeType || 'light');
-  const { user } = useAuth();
+  // Always use dark theme
+  const theme = 'dark';
+  const isDark = true;
+  const colors = darkColors;
   
-  useEffect(() => {
-    // Load saved theme
-    const loadTheme = async () => {
-      try {
-        if (user) {
-          const userThemeKey = `theme_${user.id}`;
-          const savedTheme = await AsyncStorage.getItem(userThemeKey);
-          if (savedTheme) {
-            setTheme(JSON.parse(savedTheme) as ThemeType);
-          }
-        } else {
-          // If no user is logged in, use device theme or default to light
-          setTheme(deviceTheme as ThemeType || 'light');
-        }
-      } catch (error) {
-        console.error('Failed to load theme', error);
-      }
-    };
-    
-    loadTheme();
-  }, [user, deviceTheme]);
-  
-  const toggleTheme = async () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    
-    try {
-      if (user) {
-        const userThemeKey = `theme_${user.id}`;
-        await AsyncStorage.setItem(userThemeKey, JSON.stringify(newTheme));
-      }
-    } catch (error) {
-      console.error('Failed to save theme', error);
-    }
+  const contextValue = {
+    theme,
+    isDark,
+    colors
   };
   
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

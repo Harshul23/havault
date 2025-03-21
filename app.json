@@ -5,31 +5,46 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/1741520661019.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "havault",
+    "jsEngine": "hermes",
     "splash": {
       "image": "./assets/1741520661019.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#121212"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.metaworld.havault"
+      "bundleIdentifier": "com.metaworld.havault",
+      "jsEngine": "hermes"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/1741520661019.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#121212"
       },
-      "package": "com.metaworld.havault"
+      "package": "com.metaworld.havault",
+      "jsEngine": "hermes"
     },
     "web": {
       "favicon": "./assets/1741520661019.png"
     },
     "description": "Secure password manager with encrypted local storage",
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-splash-screen"
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
   }
 }

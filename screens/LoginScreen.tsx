@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { 
   View, 
@@ -11,28 +11,36 @@ import {
   ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
-  Image
+  Image,
+  ScrollView,
+  Dimensions,
+  StatusBar,
+  Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import Animated, { FadeInDown, FadeInUp, BounceIn } from 'react-native-reanimated';
 import { Navigation } from '../navigation';
 import CustomModal from '../components/CustomModal';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LoginScreen = () => {
   const navigation = useNavigation<Navigation<'Login'>>();
   const { login, googleSignIn, isAuthenticating } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  // Force dark theme for login screen
-  const isDark = true; // Always use dark theme regardless of system setting
+  const { isDark, colors } = useTheme();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   
   // Custom modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -41,12 +49,77 @@ const LoginScreen = () => {
     message: '',
     type: 'info' as 'success' | 'error' | 'warning' | 'info' | 'confirm'
   });
+
+  // Generate UI colors based on the theme
+  const uiColors = {
+    background: colors.background,
+    logoBackground: colors.primary,
+    logoText: colors.text,
+    logoSubtext: isDark ? '#AAAAAA' : '#666666',
+    inputBackground: isDark ? '#2A2A2A' : 'white',
+    inputText: colors.text,
+    inputIcon: isDark ? '#AAAAAA' : '#999999',
+    inputPlaceholder: isDark ? '#666666' : '#999999',
+    forgotPasswordText: colors.primary,
+    buttonBackground: colors.primary,
+    biometricBorder: isDark ? '#333333' : '#E0E0E0',
+    biometricIcon: colors.primary,
+    biometricText: colors.text,
+    dividerBackground: isDark ? '#333333' : '#E0E0E0',
+    dividerText: isDark ? '#AAAAAA' : '#999999',
+    socialButtonBackground: isDark ? '#2A2A2A' : 'white',
+    socialButtonBorder: isDark ? '#333333' : '#E0E0E0',
+    socialButtonText: colors.text,
+    registerText: isDark ? '#AAAAAA' : '#666666',
+    registerLink: colors.primary
+  };
   
+  // Add mounted ref
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   useEffect(() => {
     (async () => {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       setIsBiometricSupported(compatible);
     })();
+    
+    // Add keyboard listeners to detect when keyboard appears/disappears
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+      
+      // Subtle animation for the logo - keeps screen position stable
+      if (isMounted.current) {
+        Animated.timing(fadeAnim, {
+          toValue: 0.8,
+          duration: 150,
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+    
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      
+      // Fade logo back in
+      if (isMounted.current) {
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+    
+    // Clean up listeners
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
   
   const showModal = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' | 'confirm') => {
@@ -94,7 +167,7 @@ const LoginScreen = () => {
   const handleBiometricLogin = async () => {
     try {
       const biometricAuth = await LocalAuthentication.authenticateAsync({
-        promptMessage: `Authenticate to Login`,
+        promptMessage: 'Authenticate to Login',
         fallbackLabel: 'Enter Password',
       });
       if (biometricAuth.success) {
@@ -113,53 +186,67 @@ const LoginScreen = () => {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
+    <View 
+      style={[styles.container, { backgroundColor: uiColors.background }]}
+    >
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
+        backgroundColor="transparent" 
+        translucent 
+      />
+      
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={true}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.contentContainer}>
-            <Animated.View 
-              entering={FadeInDown.duration(600).springify()}
-              style={styles.logoContainer}
-            >
-              <Animated.View 
-                entering={BounceIn.delay(300).duration(1000)}
-                style={[styles.logoBackground, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]}
-              >
+            <Animated.View style={[
+              styles.logoContainer, 
+              { 
+                opacity: fadeAnim,
+                transform: [
+                  { scale: fadeAnim.interpolate({
+                    inputRange: [0.8, 1],
+                    outputRange: [0.9, 1]
+                  })}
+                ]
+              }
+            ]}>
+              <View style={[styles.logoBackground, { backgroundColor: uiColors.logoBackground }]}>
                 <FontAwesome5 name="shield-alt" size={48} color="white" />
-              </Animated.View>
-              <Text style={[styles.logoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+              </View>
+              <Text style={[styles.logoText, { color: uiColors.logoText }]}>
                 Havault
               </Text>
-              <Text style={[styles.logoSubtext, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+              <Text style={[styles.logoSubtext, { color: uiColors.logoSubtext }]}>
                 Secure Password Manager
               </Text>
             </Animated.View>
             
-            <Animated.View 
-              entering={FadeInUp.delay(400).duration(600).springify()}
-              style={styles.formContainer}
-            >
+            <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
                 <View style={[
                   styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+                  { backgroundColor: uiColors.inputBackground }
                 ]}>
                   <FontAwesome5 
                     name="envelope" 
                     size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
+                    color={uiColors.inputIcon} 
                     style={styles.inputIcon} 
                   />
                   <TextInput 
                     style={[
                       styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
+                      { color: uiColors.inputText }
                     ]}
                     placeholder="Email" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
+                    placeholderTextColor={uiColors.inputPlaceholder}
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -171,21 +258,21 @@ const LoginScreen = () => {
               <View style={styles.inputContainer}>
                 <View style={[
                   styles.inputWrapper,
-                  { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+                  { backgroundColor: uiColors.inputBackground }
                 ]}>
                   <FontAwesome5 
                     name="lock" 
                     size={16} 
-                    color={isDark ? '#AAAAAA' : '#999999'} 
+                    color={uiColors.inputIcon} 
                     style={styles.inputIcon} 
                   />
                   <TextInput 
                     style={[
                       styles.input,
-                      { color: isDark ? '#FFFFFF' : '#333333' }
+                      { color: uiColors.inputText }
                     ]}
                     placeholder="Password" 
-                    placeholderTextColor={isDark ? '#666666' : '#999999'}
+                    placeholderTextColor={uiColors.inputPlaceholder}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -197,7 +284,7 @@ const LoginScreen = () => {
                     <FontAwesome5 
                       name={showPassword ? 'eye-slash' : 'eye'} 
                       size={16} 
-                      color={isDark ? '#AAAAAA' : '#999999'} 
+                      color={uiColors.inputIcon} 
                     />
                   </TouchableOpacity>
                 </View>
@@ -207,7 +294,7 @@ const LoginScreen = () => {
                 style={styles.forgotPassword}
                 onPress={() => navigation.navigate('ForgotPassword')}
               >
-                <Text style={[styles.forgotPasswordText, { color: isDark ? '#7B68EE' : '#6A5ACD' }]}>
+                <Text style={[styles.forgotPasswordText, { color: uiColors.forgotPasswordText }]}>
                   Forgot Password?
                 </Text>
               </TouchableOpacity>
@@ -215,7 +302,7 @@ const LoginScreen = () => {
               <TouchableOpacity 
                 style={[
                   styles.button,
-                  { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' },
+                  { backgroundColor: uiColors.buttonBackground },
                   isAuthenticating && { opacity: 0.7 }
                 ]}
                 onPress={handleLogin}
@@ -232,18 +319,18 @@ const LoginScreen = () => {
                 <TouchableOpacity 
                   style={[
                     styles.biometricButton,
-                    { borderColor: isDark ? '#333333' : '#E0E0E0' }
+                    { borderColor: uiColors.biometricBorder }
                   ]}
                   onPress={handleBiometricLogin}
                 >
                   <FontAwesome5 
                     name="fingerprint" 
                     size={20} 
-                    color={isDark ? '#7B68EE' : '#6A5ACD'} 
+                    color={uiColors.biometricIcon} 
                   />
                   <Text style={[
                     styles.biometricButtonText,
-                    { color: isDark ? '#FFFFFF' : '#333333' }
+                    { color: uiColors.biometricText }
                   ]}>
                     Use Biometrics
                   </Text>
@@ -251,19 +338,19 @@ const LoginScreen = () => {
               )}
               
               <View style={styles.dividerContainer}>
-                <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
-                <Text style={[styles.dividerText, { color: isDark ? '#AAAAAA' : '#999999' }]}>
+                <View style={[styles.divider, { backgroundColor: uiColors.dividerBackground }]} />
+                <Text style={[styles.dividerText, { color: uiColors.dividerText }]}>
                   OR
                 </Text>
-                <View style={[styles.divider, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]} />
+                <View style={[styles.divider, { backgroundColor: uiColors.dividerBackground }]} />
               </View>
               
               <TouchableOpacity 
                 style={[
                   styles.socialButton,
                   { 
-                    backgroundColor: isDark ? '#2A2A2A' : 'white',
-                    borderColor: isDark ? '#333333' : '#E0E0E0' 
+                    backgroundColor: uiColors.socialButtonBackground,
+                    borderColor: uiColors.socialButtonBorder 
                   },
                   isAuthenticating && { opacity: 0.7 }
                 ]}
@@ -277,37 +364,37 @@ const LoginScreen = () => {
                 />
                 <Text style={[
                   styles.socialButtonText,
-                  { color: isDark ? '#FFFFFF' : '#333333' }
+                  { color: uiColors.socialButtonText }
                 ]}>
                   Sign in with Google
                 </Text>
               </TouchableOpacity>
               
               <View style={styles.registerContainer}>
-                <Text style={[styles.registerText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                <Text style={[styles.registerText, { color: uiColors.registerText }]}>
                   Don't have an account?
                 </Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                  <Text style={[styles.registerLink, { color: isDark ? '#7B68EE' : '#6A5ACD' }]}>
+                  <Text style={[styles.registerLink, { color: uiColors.registerLink }]}>
                     {' Sign Up'}
                   </Text>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </View>
-        </KeyboardAvoidingView>
-        
-        {/* Custom Modal */}
-        <CustomModal
-          visible={modalVisible}
-          title={modalContent.title}
-          message={modalContent.message}
-          type={modalContent.type}
-          isDark={isDark}
-          onDismiss={() => setModalVisible(false)}
-        />
-      </View>
-    </TouchableWithoutFeedback>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+      
+      {/* Custom Modal */}
+      <CustomModal
+        visible={modalVisible}
+        title={modalContent.title}
+        message={modalContent.message}
+        type={modalContent.type}
+        isDark={isDark}
+        onDismiss={() => setModalVisible(false)}
+      />
+    </View>
   );
 };
 
@@ -315,13 +402,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'center',
+  scrollContent: {
+    flexGrow: 1,
+    minHeight: SCREEN_HEIGHT,
+    justifyContent: 'center', // Center the content vertically
   },
   contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 20 : 40,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
   },
   logoContainer: {
     alignItems: 'center',

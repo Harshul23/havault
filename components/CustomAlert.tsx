@@ -23,6 +23,11 @@ interface CustomAlertProps {
   isDark?: boolean;
 }
 
+// Define the type for the component with the static method
+interface CustomAlertComponent extends React.FC<CustomAlertProps> {
+  alert: (title: string, message: string, buttons?: AlertButton[]) => void;
+}
+
 const CustomAlert: React.FC<CustomAlertProps> = ({
   visible,
   title,
@@ -35,7 +40,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
     <Modal
       transparent={true}
       visible={visible}
-      animationType="fade"
+      animationType="none"
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
@@ -110,8 +115,10 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '80%',
+    maxWidth: 320,
     borderRadius: 13,
     overflow: 'hidden',
+    alignSelf: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -158,7 +165,7 @@ const styles = StyleSheet.create({
 });
 
 // Static method to mimic React Native's Alert API
-CustomAlert.alert = (
+(CustomAlert as CustomAlertComponent).alert = (
   title: string, 
   message: string, 
   buttons: AlertButton[] = [{ text: 'OK' }]
@@ -166,7 +173,7 @@ CustomAlert.alert = (
   // This is a placeholder. In a real implementation, you would
   // need to use a global state management solution or a context
   // to show the alert from anywhere in the app
-  console.log('Custom Alert:', title, message, buttons);
+  // Remove console.log for production build performance
 };
 
-export default CustomAlert; 
+export default CustomAlert as CustomAlertComponent; 

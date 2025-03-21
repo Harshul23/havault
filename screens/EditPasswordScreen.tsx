@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Modal, ScrollView, TouchableWithoutFeedback, Keyboard, StatusBar } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
@@ -85,6 +85,20 @@ const EditPasswordScreen = () => {
       return;
     }
     
+    // Check if anything has actually changed
+    const hasChanges = 
+      website.trim() !== password.website ||
+      username.trim() !== password.username ||
+      pwd !== password.password ||
+      folder !== password.folder ||
+      notes.trim() !== (password.notes || '');
+      
+    // If nothing changed, just go back without showing success message
+    if (!hasChanges) {
+      navigation.goBack();
+      return;
+    }
+    
     try {
       await updatePassword(password.id, {
         ...password,
@@ -106,197 +120,287 @@ const EditPasswordScreen = () => {
     }
   };
 
+  // Utility function to dismiss keyboard with better handling
+  const dismissKeyboard = () => {
+    // Use a slight delay to ensure smooth transition when dismissing keyboard
+    setTimeout(() => {
+      Keyboard.dismiss();
+    }, 0);
+  };
+
+  // Use consistent background color variable
+  const screenBackgroundColor = isDark ? '#121212' : '#F5F5F5';
+
+  // Create dynamically styled inputs inside component where isDark is accessible
+  const inputStyle = [
+    styles.input, 
+    { 
+      backgroundColor: isDark ? '#333333' : '#F5F5F5', 
+      color: isDark ? '#FFFFFF' : '#333333',
+      borderColor: isDark ? '#404040' : '#E0E0E0' 
+    }
+  ];
+
+  // Create password input style that extends the base input style
+  const passwordInputStyle = [
+    styles.input,
+    styles.passwordInput,
+    { 
+      backgroundColor: isDark ? '#333333' : '#F5F5F5', 
+      color: isDark ? '#FFFFFF' : '#333333',
+      borderColor: isDark ? '#404040' : '#E0E0E0' 
+    }
+  ];
+  
+  // Create notes input style that extends the base input style
+  const notesInputStyle = [
+    styles.input,
+    styles.notesInput,
+    { 
+      backgroundColor: isDark ? '#333333' : '#F5F5F5', 
+      color: isDark ? '#FFFFFF' : '#333333',
+      borderColor: isDark ? '#404040' : '#E0E0E0' 
+    }
+  ];
+
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={[styles.header, { backgroundColor: isDark ? '#1E1E1E' : 'white' }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#DDDDDD' : '#333333'} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>Edit Password</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <View style={styles.content}>
-        <TextInput 
-          style={[styles.input, { backgroundColor: isDark ? '#333333' : '#F5F5F5', color: isDark ? '#FFFFFF' : '#333333' }]} 
-          value={website} 
-          onChangeText={setWebsite} 
-          placeholder="Website" 
-          placeholderTextColor={isDark ? '#777777' : '#999999'} 
-        />
-        
-        <TextInput 
-          style={[styles.input, { backgroundColor: isDark ? '#333333' : '#F5F5F5', color: isDark ? '#FFFFFF' : '#333333' }]} 
-          value={username} 
-          onChangeText={setUsername} 
-          placeholder="Username" 
-          placeholderTextColor={isDark ? '#777777' : '#999999'} 
-        />
-        
-        <View style={styles.passwordContainer}>
-          <TextInput 
-            style={[
-              styles.input, 
-              styles.passwordInput,
-              { backgroundColor: isDark ? '#333333' : '#F5F5F5', color: isDark ? '#FFFFFF' : '#333333' }
-            ]} 
-            value={pwd} 
-            onChangeText={setPwd} 
-            placeholder="Password" 
-            placeholderTextColor={isDark ? '#777777' : '#999999'} 
-            secureTextEntry={!showPassword} 
-          />
-          <TouchableOpacity 
-            style={styles.eyeButton} 
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons 
-              name={showPassword ? 'eye-off' : 'eye'} 
-              size={24} 
-              color={isDark ? '#AAAAAA' : '#666666'} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        <TouchableOpacity 
-          style={[
-            styles.folderSelector, 
-            { backgroundColor: isDark ? '#333333' : '#F5F5F5', borderColor: isDark ? '#444444' : '#DDDDDD' }
-          ]} 
-          onPress={() => setShowFolderModal(true)}
-        >
-          <MaterialCommunityIcons name="folder" size={20} color={isDark ? '#AAAAAA' : '#666666'} style={styles.folderIcon} />
-          <Text style={{ flex: 1, color: isDark ? '#FFFFFF' : '#333333' }}>{folder}</Text>
-          <Ionicons name="chevron-down" size={20} color={isDark ? '#AAAAAA' : '#666666'} />
-        </TouchableOpacity>
-        
-        <TextInput 
-          style={[
-            styles.input, 
-            styles.notesInput,
-            { backgroundColor: isDark ? '#333333' : '#F5F5F5', color: isDark ? '#FFFFFF' : '#333333' }
-          ]} 
-          value={notes} 
-          onChangeText={setNotes} 
-          placeholder="Notes (Optional)" 
-          placeholderTextColor={isDark ? '#777777' : '#999999'} 
-          multiline={true}
-          textAlignVertical="top"
-          numberOfLines={4}
-        />
-        
-        <TouchableOpacity 
-          style={[styles.updateButton, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]} 
-          onPress={handleUpdate}
-        >
-          <Text style={styles.updateButtonText}>Update</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: screenBackgroundColor,
+    }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       
-      {/* Folder Selection Modal */}
-      <Modal
-        visible={showFolderModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFolderModal(false)}
+      <KeyboardAvoidingView 
+        style={[styles.container, { backgroundColor: screenBackgroundColor }]} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFolderModal(false)}
-        >
-          <View 
-            style={[
-              styles.modalContent,
-              { backgroundColor: isDark ? '#2A2A2A' : 'white' }
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-              Select Folder
-            </Text>
-            <ScrollView style={styles.folderList}>
-              {availableFolders.map((folderItem) => (
-                <TouchableOpacity
-                  key={folderItem}
-                  style={[
-                    styles.folderItem,
-                    folderItem === folder && styles.selectedFolderItem,
-                    { 
-                      backgroundColor: folderItem === folder 
-                        ? (isDark ? '#7B68EE20' : '#6A5ACD20') 
-                        : 'transparent'
-                    }
-                  ]}
-                  onPress={() => {
-                    setFolder(folderItem);
-                    setShowFolderModal(false);
-                  }}
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <View style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
+            <View style={[
+              styles.header, 
+              { 
+                backgroundColor: isDark ? '#1E1E1E' : 'white',
+                paddingTop: Platform.OS === 'ios' ? 50 : 30 // Add top padding
+              }
+            ]}>
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={24} color={isDark ? '#DDDDDD' : '#333333'} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>Edit Password</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            
+            <ScrollView 
+              style={[styles.content, { backgroundColor: screenBackgroundColor }]}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              keyboardDismissMode="on-drag"
+            >
+              <TextInput 
+                style={inputStyle} 
+                value={website} 
+                onChangeText={setWebsite} 
+                placeholder="Website" 
+                placeholderTextColor={isDark ? '#777777' : '#999999'} 
+                returnKeyType="next"
+                blurOnSubmit={false}
+              />
+              
+              <TextInput 
+                style={inputStyle} 
+                value={username} 
+                onChangeText={setUsername} 
+                placeholder="Username" 
+                placeholderTextColor={isDark ? '#777777' : '#999999'} 
+                returnKeyType="next"
+                blurOnSubmit={false}
+              />
+              
+              <View style={styles.passwordContainer}>
+                <TextInput 
+                  style={passwordInputStyle} 
+                  value={pwd} 
+                  onChangeText={setPwd} 
+                  placeholder="Password" 
+                  placeholderTextColor={isDark ? '#777777' : '#999999'} 
+                  secureTextEntry={!showPassword} 
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeButton} 
+                  onPress={() => setShowPassword(!showPassword)}
                 >
-                  <MaterialCommunityIcons 
-                    name="folder" 
-                    size={20} 
-                    color={
-                      folderItem === folder
-                        ? isDark ? '#7B68EE' : '#6A5ACD'
-                        : isDark ? '#AAAAAA' : '#666666'
-                    } 
-                    style={styles.folderIcon}
+                  <Ionicons 
+                    name={showPassword ? 'eye-off' : 'eye'} 
+                    size={24} 
+                    color={isDark ? '#AAAAAA' : '#666666'} 
                   />
-                  <Text 
-                    style={{ 
-                      color: folderItem === folder
-                        ? isDark ? '#7B68EE' : '#6A5ACD'
-                        : isDark ? '#FFFFFF' : '#333333' 
-                    }}
-                  >
-                    {folderItem}
-                  </Text>
                 </TouchableOpacity>
-              ))}
+              </View>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.folderSelector, 
+                  { backgroundColor: isDark ? '#333333' : '#F5F5F5', borderColor: isDark ? '#444444' : '#DDDDDD' }
+                ]} 
+                onPress={() => setShowFolderModal(true)}
+              >
+                <MaterialCommunityIcons name="folder" size={20} color={isDark ? '#AAAAAA' : '#666666'} style={styles.folderIcon} />
+                <Text style={{ flex: 1, color: isDark ? '#FFFFFF' : '#333333' }}>{folder}</Text>
+                <Ionicons name="chevron-down" size={20} color={isDark ? '#AAAAAA' : '#666666'} />
+              </TouchableOpacity>
+              
+              <TextInput 
+                style={notesInputStyle} 
+                value={notes} 
+                onChangeText={setNotes} 
+                placeholder="Notes (Optional)" 
+                placeholderTextColor={isDark ? '#777777' : '#999999'} 
+                multiline={true}
+                textAlignVertical="top"
+                numberOfLines={4}
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={dismissKeyboard}
+              />
+              
+              <TouchableOpacity 
+                style={[styles.updateButton, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]} 
+                onPress={handleUpdate}
+              >
+                <Text style={styles.updateButtonText}>Update</Text>
+              </TouchableOpacity>
+              
+              {/* Add bottom padding */}
+              <View style={{ height: 50, backgroundColor: screenBackgroundColor, width: '100%' }} />
             </ScrollView>
-            <TouchableOpacity
-              style={[styles.closeButton, { backgroundColor: isDark ? '#444444' : '#F5F5F5' }]}
+          </View>
+        </TouchableWithoutFeedback>
+        
+        {/* Folder Selection Modal - keep outside TouchableWithoutFeedback */}
+        <Modal
+          visible={showFolderModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={() => setShowFolderModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, backgroundColor: 'transparent' }}
+          >
+            <TouchableOpacity 
+              style={[
+                styles.modalOverlay,
+                { backgroundColor: 'rgba(0, 0, 0, 0.5)' }
+              ]}
+              activeOpacity={1}
               onPress={() => setShowFolderModal(false)}
             >
-              <Text style={{ color: isDark ? '#FFFFFF' : '#333333' }}>Cancel</Text>
+              <TouchableWithoutFeedback>
+                <View 
+                  style={[
+                    styles.modalContent,
+                    { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+                  ]}
+                >
+                  <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    Select Folder
+                  </Text>
+                  <ScrollView 
+                    style={styles.folderList}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {availableFolders.map((folderItem) => (
+                      <TouchableOpacity
+                        key={folderItem}
+                        style={[
+                          styles.folderItem,
+                          folderItem === folder ? 
+                            { backgroundColor: isDark ? '#444444' : '#EFEFEF' } : null
+                        ]}
+                        onPress={() => {
+                          setFolder(folderItem);
+                          setShowFolderModal(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.folderName,
+                            { color: isDark ? '#FFFFFF' : '#333333' },
+                            folderItem === folder ? { fontWeight: 'bold' } : null
+                          ]}
+                        >
+                          {folderItem}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <TouchableOpacity
+                    style={[styles.closeButton, { backgroundColor: isDark ? '#444444' : '#F5F5F5' }]}
+                    onPress={() => setShowFolderModal(false)}
+                  >
+                    <Text style={{ color: isDark ? '#FFFFFF' : '#333333' }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
             </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-      
-      {/* Custom Modal */}
-      <CustomModal
-        visible={modalVisible}
-        title={modalContent.title}
-        message={modalContent.message}
-        type={modalContent.type}
-        isDark={isDark}
-        onDismiss={() => setModalVisible(false)}
-      />
-    </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Modal>
+        
+        {/* Custom Modal */}
+        <CustomModal
+          visible={modalVisible}
+          title={modalContent.title}
+          message={modalContent.message}
+          type={modalContent.type}
+          isDark={isDark}
+          onDismiss={() => setModalVisible(false)}
+        />
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1,
+    backgroundColor: 'transparent', // Let the theme color flow through
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
     paddingBottom: 10,
+    marginTop: 25,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    elevation: 5,
+    elevation: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    zIndex: 10, // Ensure header is above other elements
   },
   backButton: { padding: 6 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', textAlign: 'center' },
-  content: { flex: 1, padding: 16 },
+  content: { 
+    flex: 1, 
+    padding: 16,
+  },
   input: {
     height: 50,
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 16,
+    borderWidth: 1,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -336,15 +440,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
+    marginBottom: 10,
+    elevation: 2, // Add elevation for Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  updateButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  updateButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -385,6 +490,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  folderName: {
+    flex: 1,
   },
 });
 

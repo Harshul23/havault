@@ -10,7 +10,6 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import Animated, { FadeIn, SlideInUp, FadeInDown } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -19,7 +18,7 @@ interface CustomModalProps {
   title: string;
   message: string;
   type?: 'success' | 'error' | 'warning' | 'info' | 'confirm';
-  onDismiss?: () => void;
+  onDismiss: (confirmed?: boolean) => void;
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
@@ -41,15 +40,15 @@ const CustomModal: React.FC<CustomModalProps> = ({
   const getIconName = () => {
     switch(type) {
       case 'success':
-        return 'checkmark-circle';
+        return 'checkmark-circle-outline';
       case 'error':
-        return 'alert-circle';
+        return 'alert-circle-outline';
       case 'warning':
-        return 'warning';
+        return 'warning-outline';
       case 'confirm':
-        return 'help-circle';
+        return 'help-circle-outline';
       default:
-        return 'information-circle';
+        return 'information-circle-outline';
     }
   };
   
@@ -85,60 +84,59 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
   return (
     <Modal
-      transparent
       visible={visible}
+      transparent={true}
       animationType="fade"
-      onRequestClose={onDismiss}
+      onRequestClose={() => onDismiss(false)}
     >
-      <TouchableWithoutFeedback onPress={onDismiss}>
-        <View style={styles.overlay}>
+      <TouchableWithoutFeedback onPress={() => onDismiss(false)}>
+        <View style={[
+          styles.overlay,
+          { backgroundColor: 'rgba(0, 0, 0, 0.5)' }
+        ]}>
           <TouchableWithoutFeedback>
-            <Animated.View 
-              entering={SlideInUp.springify().damping(15)}
+            <View 
               style={[
                 styles.modalContainer,
-                { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+                { borderRadius: 20, alignItems: 'center', width: '90%' },
+                { backgroundColor: isDark ? '#1E1E1E' : 'white' }
               ]}
             >
               {/* Header with Icon */}
-              <Animated.View 
-                entering={FadeInDown.delay(100).duration(500)}
+              <View 
                 style={[
                   styles.iconCircle,
                   { backgroundColor: isDark ? '#333333' : '#F5F5F5' }
                 ]}
               >
                 <Ionicons 
-                  name={getIconName() as any}
+                  name={getIconName()}
                   size={40}
                   color={getIconColor()}
                   style={styles.icon}
                 />
-              </Animated.View>
+              </View>
               
-              <Animated.Text 
-                entering={FadeInDown.delay(200).duration(500)}
+              <Text 
                 style={[
                   styles.title,
                   { color: isDark ? '#FFFFFF' : '#333333' }
                 ]}
               >
                 {title}
-              </Animated.Text>
+              </Text>
               
-              <Animated.Text 
-                entering={FadeInDown.delay(300).duration(500)}
+              <Text 
                 style={[
                   styles.message,
                   { color: isDark ? '#AAAAAA' : '#666666' }
                 ]}
               >
                 {message}
-              </Animated.Text>
+              </Text>
               
               {/* Buttons */}
-              <Animated.View 
-                entering={FadeInDown.delay(400).duration(500)}
+              <View 
                 style={[
                   styles.buttonContainer,
                   type === 'confirm' && styles.buttonRow
@@ -151,7 +149,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                       styles.cancelButton,
                       { backgroundColor: isDark ? '#333333' : '#EEEEEE' }
                     ]}
-                    onPress={onDismiss}
+                    onPress={() => onDismiss(false)}
                   >
                     <Text style={[
                       styles.buttonText,
@@ -168,14 +166,17 @@ const CustomModal: React.FC<CustomModalProps> = ({
                     {backgroundColor: getPrimaryButtonColor()},
                     type === 'confirm' && styles.confirmButton
                   ]}
-                  onPress={type === 'confirm' ? onConfirm : onDismiss}
+                  onPress={() => {
+                    if (onConfirm) onConfirm();
+                    onDismiss(true);
+                  }}
                 >
                   <Text style={[styles.buttonText, { color: 'white' }]}>
                     {type === 'confirm' ? confirmText : 'OK'}
                   </Text>
                 </TouchableOpacity>
-              </Animated.View>
-            </Animated.View>
+              </View>
+            </View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -189,13 +190,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(5px)'
+    width: '100%',
   },
   modalContainer: {
-    width: SCREEN_WIDTH * 0.85,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
+    alignSelf: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -209,12 +210,13 @@ const styles = StyleSheet.create({
     }),
   },
   iconCircle: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+    marginTop: 15,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     }),
   },
   icon: {
-    textAlign: 'center',
+    textAlign: 'center',    
   },
   title: {
     fontSize: 22,
@@ -238,27 +240,34 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 16,
+    marginLeft: 20,
+    marginRight: 20, 
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 10,
     lineHeight: 22
   },
   buttonContainer: {
-    width: '100%',
-    marginTop: 8
+    width: '80%',
+    marginTop: 8,
+    alignSelf: 'center',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   button: {
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,
     width: '100%',
-    marginVertical: 6,
+    marginVertical: 25,
+    marginRight: 10,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -268,6 +277,7 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 2,
+        borderRadius: 12,
       },
     }),
   },

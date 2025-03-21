@@ -114,7 +114,7 @@ const EditProfileScreen: React.FC = () => {
           Edit Profile
         </Text>
         
-        <View style={{ width: 30 }} /> {/* Spacer for center alignment */}
+        <View style={{ width: 30 }} />
       </View>
       
       <ScrollView 
@@ -210,6 +210,8 @@ const EditProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    
   },
   header: {
     flexDirection: 'row',
@@ -217,6 +219,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 60,
     paddingHorizontal: 16,
+    marginTop: 38,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
   },
   backButton: {
     padding: 8,

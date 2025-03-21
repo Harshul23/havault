@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,7 +8,7 @@ import {
   ScrollView,
   Linking
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
@@ -16,12 +16,12 @@ import { useAuth } from '../context/AuthContext';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Navigation } from '../navigation';
 import CustomModal from '../components/CustomModal';
+import { useIsMountedRef, useSafeReanimatedTransition } from '../utils/animationUtils';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<Navigation<'Settings'>>();
-  const { theme, toggleTheme } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user, logout } = useAuth();
-  const isDark = theme === 'dark';
   
   const [biometricsEnabled, setBiometricsEnabled] = useState(true);
   const [autoLockEnabled, setAutoLockEnabled] = useState(true);
@@ -35,6 +35,22 @@ const SettingsScreen = () => {
     type: 'info' as 'success' | 'error' | 'warning' | 'info' | 'confirm',
     action: '' as 'logout' | 'clearData' | 'none' | 'privacyPolicy' | 'about'
   });
+  
+  // Add isMounted ref to prevent animations on unmounted components
+  const isMounted = useIsMountedRef();
+  const isFocused = useIsFocused();
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+  
+  // Get the safe animation configuration
+  const fadeInAnimation = useSafeReanimatedTransition(
+    FadeIn.duration(300),
+    undefined, // No exit animation needed
+    isMounted
+  );
   
   const toggleBiometrics = () => {
     setBiometricsEnabled(!biometricsEnabled);
@@ -123,7 +139,7 @@ const SettingsScreen = () => {
   };
   
   const renderSettingItem = (
-    icon: string, 
+    icon: React.ReactNode, 
     title: string, 
     description: string, 
     value: boolean, 
@@ -156,7 +172,7 @@ const SettingsScreen = () => {
   );
   
   const renderActionItem = (
-    icon: string, 
+    icon: React.ReactNode, 
     title: string, 
     description: string, 
     onPress: () => void, 
@@ -198,6 +214,16 @@ const SettingsScreen = () => {
     </TouchableOpacity>
   );
   
+  // Create logout button style inside component where isDark is available
+  const logoutButtonStyle = {
+    ...styles.logoutButton,
+    backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+    borderColor: isDark ? '#444444' : '#E0E0E0',
+  };
+  
+  // Add this check to any render function that uses animations
+  const shouldAnimateItems = isMounted.current && isFocused;
+  
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
       {/* Header */}
@@ -217,165 +243,199 @@ const SettingsScreen = () => {
           Settings
         </Text>
         
-        <View style={{ width: 30 }} /> {/* Spacer for center alignment */}
+        <View style={{ width: 30 }} />
       </View>
       
       <ScrollView style={styles.content}>
-        <Animated.View entering={FadeIn.duration(300)}>
-          {/* Account Section */}
-          <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-            ACCOUNT
-          </Text>
-          
-          <View style={[styles.profileCard, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <View style={styles.profileInfo}>
-              <View style={[styles.profileAvatar, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]}>
-                <Text style={styles.profileInitial}>
-                  {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                </Text>
+        {shouldAnimateItems && (
+          <Animated.View entering={fadeInAnimation.entering}>
+            {/* Account Section */}
+            <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+              ACCOUNT
+            </Text>
+            
+            <View style={[styles.profileCard, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+              <View style={styles.profileInfo}>
+                <View style={[styles.profileAvatar, { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' }]}>
+                  <Text style={styles.profileInitial}>
+                    {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+                
+                <View>
+                  <Text style={[styles.profileName, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    {user?.name || 'User'}
+                  </Text>
+                  <Text style={[styles.profileEmail, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    {user?.email || 'user@example.com'}
+                  </Text>
+                </View>
               </View>
               
-              <View>
-                <Text style={[styles.profileName, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                  {user?.name || 'User'}
+              <TouchableOpacity 
+                style={[styles.editProfileButton, { borderColor: isDark ? '#333333' : '#E0E0E0' }]}
+                onPress={() => {
+                  try {
+                    navigation.navigate('EditProfile');
+                  } catch (error) {
+                    console.error('Navigation error:', error);
+                    showModal(
+                      'Error',
+                      'Unable to access profile settings at this time.',
+                      'error'
+                    );
+                  }
+                }}
+              >
+                <Text style={[styles.editProfileText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
+                  Edit Profile
                 </Text>
-                <Text style={[styles.profileEmail, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  {user?.email || 'user@example.com'}
-                </Text>
-              </View>
+              </TouchableOpacity>
             </View>
             
-            <TouchableOpacity 
-              style={[styles.editProfileButton, { borderColor: isDark ? '#333333' : '#E0E0E0' }]}
-              onPress={() => {
-                console.log('Navigating to EditProfile screen');
-                navigation.navigate('EditProfile');
-              }}
+            {/* Security Section */}
+            <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
+              SECURITY
+            </Text>
+            
+            {renderSettingItem(
+              <MaterialCommunityIcons name="fingerprint" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Biometric Authentication',
+              'Use fingerprint or Face ID to unlock app',
+              biometricsEnabled,
+              toggleBiometrics
+            )}
+            
+            {renderSettingItem(
+              <MaterialCommunityIcons name="lock-clock" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Auto-Lock',
+              'Lock app when not in use',
+              autoLockEnabled,
+              toggleAutoLock
+            )}
+            
+            {renderActionItem(
+              <MaterialCommunityIcons name="key-change" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Change Master Password',
+              'Update your primary password',
+              () => {
+                try {
+                  navigation.navigate('ChangeMasterPassword');
+                } catch (error) {
+                  showModal(
+                    'Error',
+                    'Unable to access this feature at this time.',
+                    'error'
+                  );
+                }
+              }
+            )}
+            
+            {/* Preferences Section */}
+            <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
+              PREFERENCES
+            </Text>
+            
+            {renderSettingItem(
+              <Ionicons name="notifications-outline" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Notifications',
+              'Enable or disable app notifications',
+              notificationsEnabled,
+              toggleNotifications
+            )}
+            
+            {/* About Section */}
+            <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
+              ABOUT
+            </Text>
+            
+            {renderActionItem(
+              <MaterialIcons name="privacy-tip" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Privacy Policy',
+              'Read our privacy policy',
+              showPrivacyPolicy
+            )}
+            
+            {renderActionItem(
+              <Ionicons name="information-circle-outline" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'About Havault',
+              'App information and credits',
+              showAboutHavault
+            )}
+            
+            {renderActionItem(
+              <MaterialIcons name="rate-review" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Rate the App',
+              'Let us know how we\'re doing',
+              () => {
+                try {
+                  Linking.openURL('https://play.google.com/store/apps/details?id=com.havault');
+                } catch (error) {
+                  showModal(
+                    'Error',
+                    'Could not open app store.',
+                    'error'
+                  );
+                }
+              }
+            )}
+            
+            {/* Data Management Section */}
+            <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
+              DATA MANAGEMENT
+            </Text>
+            
+            {renderActionItem(
+              <MaterialCommunityIcons name="database-export" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Export Data',
+              'Export your passwords as CSV',
+              () => {
+                showModal(
+                  'Export Data',
+                  'This feature is coming soon.',
+                  'info'
+                );
+              }
+            )}
+            
+            {renderActionItem(
+              <MaterialCommunityIcons name="database-import" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
+              'Import Data',
+              'Import passwords from CSV',
+              () => {
+                showModal(
+                  'Import Data',
+                  'This feature is coming soon.',
+                  'info'
+                );
+              }
+            )}
+            
+            {renderActionItem(
+              <MaterialCommunityIcons name="delete-sweep" size={24} color="#F44336" />,
+              'Clear All Data',
+              'Delete all passwords and folders',
+              clearAllData,
+              true
+            )}
+            
+            {/* Log Out */}
+            <TouchableOpacity
+              style={logoutButtonStyle}
+              onPress={handleLogout}
             >
-              <Text style={[styles.editProfileText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
-                Edit Profile
+              <Text style={[styles.logoutText, { color: '#F44336' }]}>
+                Log Out
               </Text>
             </TouchableOpacity>
-          </View>
-          
-          {/* Security Section */}
-          <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
-            SECURITY
-          </Text>
-          
-          {renderSettingItem(
-            <MaterialCommunityIcons name="fingerprint" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Biometric Authentication',
-            'Use fingerprint or Face ID to unlock app',
-            biometricsEnabled,
-            toggleBiometrics
-          )}
-          
-          {renderSettingItem(
-            <MaterialCommunityIcons name="lock-clock" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Auto-Lock',
-            'Lock app when not in use',
-            autoLockEnabled,
-            toggleAutoLock
-          )}
-          
-          {renderActionItem(
-            <MaterialCommunityIcons name="key-change" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Change Master Password',
-            'Update your primary password',
-            () => navigation.navigate('ChangeMasterPassword')
-          )}
-          
-          {/* Preferences Section */}
-          <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
-            PREFERENCES
-          </Text>
-          
-          {renderSettingItem(
-            <Ionicons name={isDark ? 'moon' : 'sunny'} size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Dark Theme',
-            'Toggle between light and dark mode',
-            isDark,
-            toggleTheme
-          )}
-          
-          {renderSettingItem(
-            <Ionicons name="notifications-outline" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Notifications',
-            'Enable or disable app notifications',
-            notificationsEnabled,
-            toggleNotifications
-          )}
-          
-          {/* About Section */}
-          <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
-            ABOUT
-          </Text>
-          
-          {renderActionItem(
-            <MaterialIcons name="privacy-tip" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Privacy Policy',
-            'Read our privacy policy',
-            showPrivacyPolicy
-          )}
-          
-          {renderActionItem(
-            <Ionicons name="information-circle-outline" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'About Havault',
-            'App information and credits',
-            showAboutHavault
-          )}
-          
-          {renderActionItem(
-            <MaterialIcons name="rate-review" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Rate the App',
-            'Let us know how we\'re doing',
-            () => Linking.openURL('https://play.google.com/store/apps/details?id=com.havault')
-          )}
-          
-          {/* Data Management Section */}
-          <Text style={[styles.sectionTitle, { color: isDark ? '#AAAAAA' : '#666666', marginTop: 20 }]}>
-            DATA MANAGEMENT
-          </Text>
-          
-          {renderActionItem(
-            <MaterialCommunityIcons name="database-export" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Export Data',
-            'Export your passwords as CSV',
-            () => console.log('Export data')
-          )}
-          
-          {renderActionItem(
-            <MaterialCommunityIcons name="database-import" size={24} color={isDark ? '#7B68EE' : '#6A5ACD'} />,
-            'Import Data',
-            'Import passwords from CSV',
-            () => console.log('Import data')
-          )}
-          
-          {renderActionItem(
-            <MaterialCommunityIcons name="delete-sweep" size={24} color="#F44336" />,
-            'Clear All Data',
-            'Delete all passwords and folders',
-            clearAllData,
-            true
-          )}
-          
-          {/* Log Out */}
-          <TouchableOpacity
-            style={[styles.logoutButton, { borderColor: isDark ? '#333333' : '#E0E0E0' }]}
-            onPress={handleLogout}
-          >
-            <Text style={[styles.logoutText, { color: '#F44336' }]}>
-              Log Out
-            </Text>
-          </TouchableOpacity>
-          
-          <View style={styles.versionInfo}>
-            <Text style={[styles.versionText, { color: isDark ? '#777777' : '#999999' }]}>
-              Version 3.0.0
-            </Text>
-          </View>
-        </Animated.View>
+            
+            <View style={styles.versionInfo}>
+              <Text style={[styles.versionText, { color: isDark ? '#777777' : '#999999' }]}>
+                Version 3.0.0
+              </Text>
+            </View>
+          </Animated.View>
+        )}
       </ScrollView>
       
       {/* Custom Modal for confirmations and info */}
@@ -469,7 +529,9 @@ const styles = StyleSheet.create({
   editProfileButton: {
     padding: 10,
     borderRadius: 8,
-    borderWidth: 1,
+    elevation: 25,
+    borderWidth: 5,
+    shadowColor: 'transparent',
     alignItems: 'center',
   },
   editProfileText: {
@@ -509,13 +571,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     padding: 16,
+    borderWidth: 2,
     marginTop: 20,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: 'transparent',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 15,
   },
   logoutText: {
     fontSize: 16,
@@ -525,6 +588,7 @@ const styles = StyleSheet.create({
   versionInfo: {
     alignItems: 'center',
     marginVertical: 20,
+    paddingVertical: 10,
   },
   versionText: {
     fontSize: 13,

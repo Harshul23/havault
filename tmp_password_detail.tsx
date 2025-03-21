@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -29,6 +29,14 @@ const PasswordDetailScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [usernameCopied, setUsernameCopied] = useState(false);
+  
+  // Add isMounted ref to prevent animations on unmounted components
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
   
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -165,165 +173,175 @@ const PasswordDetailScreen = () => {
       </View>
       
       <ScrollView style={styles.content}>
-        <Animated.View entering={FadeIn.duration(400)}>
-          {/* Website Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              WEBSITE
-            </Text>
-            <Text style={[styles.websiteText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-              {password.website}
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.websiteButton, { backgroundColor: isDark ? '#333333' : '#F0F0F0' }]}
-              onPress={openWebsite}
-            >
-              <Ionicons name="open-outline" size={16} color={isDark ? '#DDDDDD' : '#333333'} />
-              <Text style={[styles.websiteButtonText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
-                Open Website
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(100).duration(400)}>
-          {/* Username Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              USERNAME
-            </Text>
-            <View style={styles.credentialRow}>
-              <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                {password.username}
-              </Text>
-              <TouchableOpacity 
-                style={styles.copyButton}
-                onPress={() => copyToClipboard(password.username, 'username')}
-              >
-                <Ionicons 
-                  name={usernameCopied ? "checkmark" : "copy-outline"} 
-                  size={20} 
-                  color={usernameCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(200).duration(400)}>
-          {/* Password Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              PASSWORD
-            </Text>
-            <View style={styles.credentialRow}>
-              <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                {showPassword ? password.password : '••••••••••••••'}
-              </Text>
-              <View style={styles.passwordActions}>
-                <TouchableOpacity 
-                  style={styles.visibilityButton}
-                  onPress={toggleShowPassword}
-                >
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color={isDark ? '#AAAAAA' : '#666666'} 
-                  />
-                </TouchableOpacity>
+        <View style={styles.contentContainer}>
+          {isMounted.current && (
+            <Animated.View entering={FadeIn.duration(400)}>
+              {/* Website Card */}
+              <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  WEBSITE
+                </Text>
+                <Text style={[styles.websiteText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                  {password.website}
+                </Text>
                 
                 <TouchableOpacity 
-                  style={styles.copyButton}
-                  onPress={() => copyToClipboard(password.password, 'password')}
+                  style={[styles.websiteButton, { backgroundColor: isDark ? '#333333' : '#F0F0F0' }]}
+                  onPress={openWebsite}
                 >
-                  <Ionicons 
-                    name={passwordCopied ? "checkmark" : "copy-outline"} 
-                    size={20} 
-                    color={passwordCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
-                  />
+                  <Ionicons name="open-outline" size={16} color={isDark ? '#DDDDDD' : '#333333'} />
+                  <Text style={[styles.websiteButtonText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
+                    Open Website
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
-            
-            <View style={styles.strengthContainer}>
-              <View style={styles.strengthLabelContainer}>
-                <Text style={[styles.strengthLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  STRENGTH
+            </Animated.View>
+          )}
+          
+          {isMounted.current && (
+            <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+              {/* Username Card */}
+              <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  USERNAME
                 </Text>
-                <Text style={[styles.strengthText, { color: strengthColor }]}>
-                  {password.strength || 'Strong'}
-                </Text>
+                <View style={styles.credentialRow}>
+                  <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    {password.username}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.copyButton}
+                    onPress={() => copyToClipboard(password.username, 'username')}
+                  >
+                    <Ionicons 
+                      name={usernameCopied ? "checkmark" : "copy-outline"} 
+                      size={20} 
+                      color={usernameCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={[styles.strengthBar, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]}>
-                <View 
-                  style={[
-                    styles.strengthFill, 
-                    { 
-                      backgroundColor: strengthColor,
-                      width: password.strength === 'Weak' ? '33%' : password.strength === 'Medium' ? '66%' : '100%'
-                    }
-                  ]} 
-                />
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-          {/* Additional Info Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              ADDITIONAL INFO
-            </Text>
-            
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons 
-                name="folder-outline" 
-                size={18} 
-                color={isDark ? '#AAAAAA' : '#666666'} 
-              />
-              <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                {password.folder}
-              </Text>
-            </View>
-            
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons 
-                name="calendar-outline" 
-                size={18} 
-                color={isDark ? '#AAAAAA' : '#666666'} 
-              />
-              <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                Added on {formatDate(password.dateAdded)}
-              </Text>
-            </View>
-            
-            {password.lastModified && (
-              <View style={styles.infoRow}>
-                <MaterialCommunityIcons 
-                  name="update" 
-                  size={18} 
-                  color={isDark ? '#AAAAAA' : '#666666'} 
-                />
-                <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                  Last updated on {formatDate(password.lastModified)}
+            </Animated.View>
+          )}
+          
+          {isMounted.current && (
+            <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+              {/* Password Card */}
+              <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  PASSWORD
                 </Text>
+                <View style={styles.credentialRow}>
+                  <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    {showPassword ? password.password : '••••••••••••••'}
+                  </Text>
+                  <View style={styles.passwordActions}>
+                    <TouchableOpacity 
+                      style={styles.visibilityButton}
+                      onPress={toggleShowPassword}
+                    >
+                      <Ionicons 
+                        name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                        size={20} 
+                        color={isDark ? '#AAAAAA' : '#666666'} 
+                      />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyToClipboard(password.password, 'password')}
+                    >
+                      <Ionicons 
+                        name={passwordCopied ? "checkmark" : "copy-outline"} 
+                        size={20} 
+                        color={passwordCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                
+                <View style={styles.strengthContainer}>
+                  <View style={styles.strengthLabelContainer}>
+                    <Text style={[styles.strengthLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                      STRENGTH
+                    </Text>
+                    <Text style={[styles.strengthText, { color: strengthColor }]}>
+                      {password.strength || 'Strong'}
+                    </Text>
+                  </View>
+                  <View style={[styles.strengthBar, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]}>
+                    <View 
+                      style={[
+                        styles.strengthFill, 
+                        { 
+                          backgroundColor: strengthColor,
+                          width: password.strength === 'Weak' ? '33%' : password.strength === 'Medium' ? '66%' : '100%'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
               </View>
-            )}
-            
-            {password.notes && (
-              <View style={styles.notesContainer}>
-                <Text style={[styles.notesLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  NOTES
+            </Animated.View>
+          )}
+          
+          {isMounted.current && (
+            <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+              {/* Additional Info Card */}
+              <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  ADDITIONAL INFO
                 </Text>
-                <Text style={[styles.notesText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                  {password.notes}
-                </Text>
+                
+                <View style={styles.infoRow}>
+                  <MaterialCommunityIcons 
+                    name="folder-outline" 
+                    size={18} 
+                    color={isDark ? '#AAAAAA' : '#666666'} 
+                  />
+                  <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    {password.folder}
+                  </Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <MaterialCommunityIcons 
+                    name="calendar-outline" 
+                    size={18} 
+                    color={isDark ? '#AAAAAA' : '#666666'} 
+                  />
+                  <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    Added on {formatDate(password.dateAdded)}
+                  </Text>
+                </View>
+                
+                {password.lastModified && (
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons 
+                      name="update" 
+                      size={18} 
+                      color={isDark ? '#AAAAAA' : '#666666'} 
+                    />
+                    <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                      Last updated on {formatDate(password.lastModified)}
+                    </Text>
+                  </View>
+                )}
+                
+                {password.notes && (
+                  <View style={styles.notesContainer}>
+                    <Text style={[styles.notesLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                      NOTES
+                    </Text>
+                    <Text style={[styles.notesText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                      {password.notes}
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-        </Animated.View>
+            </Animated.View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -367,6 +385,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+  contentContainer: {
+    flex: 1,
   },
   card: {
     borderRadius: 12,

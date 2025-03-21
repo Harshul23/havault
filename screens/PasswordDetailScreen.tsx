@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,16 +6,21 @@ import {
   TouchableOpacity, 
   ScrollView,
   Linking,
-  Platform
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../context/ThemeContext';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { Navigation, RootStackParamList, PasswordType } from '../navigation';
 import { usePassword } from '../PasswordContext';
 import CustomModal from '../components/CustomModal';
+import SafeScreenWrapper from '../components/SafeScreenWrapper';
+import { useIsMountedRef } from '../utils/animationUtils';
 
 type RouteParams = {
   password: PasswordType;
@@ -24,14 +29,37 @@ type RouteParams = {
 const PasswordDetailScreen = () => {
   const navigation = useNavigation<Navigation<'PasswordDetail'>>();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
-  const { password } = route.params;
+  const { password: initialPassword } = route.params;
   const { theme } = useTheme();
-  const { deletePassword } = usePassword();
+  const { deletePassword, passwords } = usePassword();
   const isDark = theme === 'dark';
+  const isMounted = useIsMountedRef();
+  const isFocused = useIsFocused();
   
+  // Store the password in local state and ensure it's updated when changed
+  const [password, setPassword] = useState<PasswordType>(initialPassword);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [usernameCopied, setUsernameCopied] = useState(false);
+  
+  // Update local password state when it changes in the context
+  useEffect(() => {
+    if (isMounted.current && isFocused) {
+    const updatedPassword = passwords.find(p => p.id === initialPassword.id);
+    if (updatedPassword) {
+      setPassword(updatedPassword);
+    }
+    }
+  }, [passwords, initialPassword.id, isFocused]);
+  
+  // Clean up timers and state when unmounting
+  useEffect(() => {
+    return () => {
+      setPasswordCopied(false);
+      setUsernameCopied(false);
+      setShowPassword(false);
+    };
+  }, []);
   
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -51,13 +79,23 @@ const PasswordDetailScreen = () => {
   };
   
   const copyToClipboard = async (text: string, type: 'password' | 'username'): Promise<void> => {
-    await Clipboard.setStringAsync(text);
-    if (type === 'password') {
-      setPasswordCopied(true);
-      setTimeout(() => setPasswordCopied(false), 2000);
-    } else {
-      setUsernameCopied(true);
-      setTimeout(() => setUsernameCopied(false), 2000);
+    try {
+      await Clipboard.setStringAsync(text);
+      if (type === 'password') {
+        setPasswordCopied(true);
+        setTimeout(() => setPasswordCopied(false), 2000);
+      } else {
+        setUsernameCopied(true);
+        setTimeout(() => setUsernameCopied(false), 2000);
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      setModalContent({
+        title: 'Error',
+        message: 'Failed to copy to clipboard. Please try again.',
+        type: 'error'
+      });
+      setModalVisible(true);
     }
   };
   
@@ -68,7 +106,7 @@ const PasswordDetailScreen = () => {
   const confirmDelete = () => {
     setModalContent({
       title: 'Delete Password',
-      message: `Are you sure you want to delete the password for ${password.website}?`,
+      message: 'Are you sure you want to delete the password for ' + password.website + '?',
       type: 'confirm'
     });
     setModalVisible(true);
@@ -130,222 +168,268 @@ const PasswordDetailScreen = () => {
     }
   };
   
+  // Utility function to dismiss keyboard with better handling
+  const dismissKeyboard = () => {
+    // Use a slight delay to ensure smooth transition when dismissing keyboard
+    setTimeout(() => {
+      Keyboard.dismiss();
+    }, 0);
+  };
+  
+  // Use a consistent background color variable
+  const screenBackgroundColor = isDark ? '#121212' : '#F5F5F5';
+  
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: isDark ? '#1E1E1E' : 'white' }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons 
-            name="arrow-back" 
-            size={24} 
-            color={isDark ? '#DDDDDD' : '#333333'} 
-          />
-        </TouchableOpacity>
-        
-        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-          Password Details
-        </Text>
-        
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-            <Ionicons 
-              name="pencil" 
-              size={22} 
-              color={isDark ? '#DDDDDD' : '#333333'} 
-            />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={confirmDelete}>
-            <Ionicons 
-              name="trash-outline" 
-              size={22} 
-              color={isDark ? '#DDDDDD' : '#333333'} 
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <SafeScreenWrapper>
+      <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#FFFFFF' }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       
-      <ScrollView style={styles.content}>
-        <Animated.View entering={FadeIn.duration(400)}>
-          {/* Website Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              WEBSITE
-            </Text>
-            <Text style={[styles.websiteText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-              {password.website}
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.websiteButton, { backgroundColor: isDark ? '#333333' : '#F0F0F0' }]}
-              onPress={openWebsite}
-            >
-              <Ionicons name="open-outline" size={16} color={isDark ? '#DDDDDD' : '#333333'} />
-              <Text style={[styles.websiteButtonText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
-                Open Website
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(100).duration(400)}>
-          {/* Username Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              USERNAME
-            </Text>
-            <View style={styles.credentialRow}>
-              <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                {password.username}
-              </Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: screenBackgroundColor }]}
+      >
+        <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
+          <View style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
+            {/* Header with top padding */}
+            <View style={[
+              styles.header, 
+              { 
+                backgroundColor: isDark ? '#1E1E1E' : 'white',
+                paddingTop: Platform.OS === 'ios' ? 50 : 30 // Add top padding here
+              }
+            ]}>
               <TouchableOpacity 
-                style={styles.copyButton}
-                onPress={() => copyToClipboard(password.username, 'username')}
+                style={styles.backButton} 
+                onPress={() => navigation.goBack()}
               >
                 <Ionicons 
-                  name={usernameCopied ? "checkmark" : "copy-outline"} 
-                  size={20} 
-                  color={usernameCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                  name="arrow-back" 
+                  size={24} 
+                  color={isDark ? '#DDDDDD' : '#333333'} 
                 />
               </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(200).duration(400)}>
-          {/* Password Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              PASSWORD
-            </Text>
-            <View style={styles.credentialRow}>
-              <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                {showPassword ? password.password : '••••••••••••••'}
+              
+              <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                Password Details
               </Text>
-              <View style={styles.passwordActions}>
-                <TouchableOpacity 
-                  style={styles.visibilityButton}
-                  onPress={toggleShowPassword}
-                >
+              
+              <View style={styles.headerActions}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
                   <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color={isDark ? '#AAAAAA' : '#666666'} 
+                    name="pencil" 
+                    size={22} 
+                    color={isDark ? '#DDDDDD' : '#333333'} 
                   />
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                  style={styles.copyButton}
-                  onPress={() => copyToClipboard(password.password, 'password')}
-                >
+                <TouchableOpacity style={styles.actionButton} onPress={confirmDelete}>
                   <Ionicons 
-                    name={passwordCopied ? "checkmark" : "copy-outline"} 
-                    size={20} 
-                    color={passwordCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                    name="trash-outline" 
+                    size={22} 
+                    color={isDark ? '#DDDDDD' : '#333333'} 
                   />
                 </TouchableOpacity>
               </View>
             </View>
             
-            <View style={styles.strengthContainer}>
-              <View style={styles.strengthLabelContainer}>
-                <Text style={[styles.strengthLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  STRENGTH
-                </Text>
-                <Text style={[styles.strengthText, { color: strengthColor }]}>
-                  {password.strength || 'Strong'}
-                </Text>
-              </View>
-              <View style={[styles.strengthBar, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]}>
-                <View 
-                  style={[
-                    styles.strengthFill, 
-                    { 
-                      backgroundColor: strengthColor,
-                      width: password.strength === 'Weak' ? '33%' : password.strength === 'Medium' ? '66%' : '100%'
-                    }
-                  ]} 
-                />
-              </View>
+            {/* Wrap ScrollView in a View for consistent background */}
+            <View style={{ 
+              flex: 1, 
+              backgroundColor: screenBackgroundColor 
+            }}>
+              <ScrollView 
+                style={[styles.content, { backgroundColor: screenBackgroundColor }]}
+                contentContainerStyle={{ 
+                  paddingBottom: 20,
+                  backgroundColor: screenBackgroundColor 
+                }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                keyboardDismissMode="on-drag"
+              >
+                {/* Website Card */}
+                <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                  <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    WEBSITE
+                  </Text>
+                  <Text style={[styles.websiteText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                    {password.website}
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={[styles.websiteButton, { backgroundColor: isDark ? '#333333' : '#F0F0F0' }]}
+                    onPress={openWebsite}
+                  >
+                    <Ionicons name="open-outline" size={16} color={isDark ? '#DDDDDD' : '#333333'} />
+                    <Text style={[styles.websiteButtonText, { color: isDark ? '#DDDDDD' : '#333333' }]}>
+                      Open Website
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Username Card */}
+                <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                  <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    USERNAME
+                  </Text>
+                  <View style={styles.credentialRow}>
+                    <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                      {password.username}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={() => copyToClipboard(password.username, 'username')}
+                    >
+                      <Ionicons 
+                        name={usernameCopied ? "checkmark" : "copy-outline"} 
+                        size={20} 
+                        color={usernameCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                
+                {/* Password Card */}
+                <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                  <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    PASSWORD
+                  </Text>
+                  <View style={styles.credentialRow}>
+                    <Text style={[styles.credentialText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                      {showPassword ? password.password : '••••••••••••••'}
+                    </Text>
+                    <View style={styles.passwordActions}>
+                      <TouchableOpacity 
+                        style={styles.visibilityButton}
+                        onPress={toggleShowPassword}
+                      >
+                        <Ionicons 
+                          name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                          size={20} 
+                          color={isDark ? '#AAAAAA' : '#666666'} 
+                        />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.copyButton}
+                        onPress={() => copyToClipboard(password.password, 'password')}
+                      >
+                        <Ionicons 
+                          name={passwordCopied ? "checkmark" : "copy-outline"} 
+                          size={20} 
+                          color={passwordCopied ? "#4CAF50" : (isDark ? '#AAAAAA' : '#666666')} 
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.strengthContainer}>
+                    <View style={styles.strengthLabelContainer}>
+                      <Text style={[styles.strengthLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                        STRENGTH
+                      </Text>
+                      <Text style={[styles.strengthText, { color: strengthColor }]}>
+                        {password.strength || 'Strong'}
+                      </Text>
+                    </View>
+                    <View style={[styles.strengthBar, { backgroundColor: isDark ? '#333333' : '#E0E0E0' }]}>
+                      <View 
+                        style={[
+                          styles.strengthFill, 
+                          { 
+                            backgroundColor: strengthColor,
+                            width: password.strength === 'Weak' ? '33%' : password.strength === 'Medium' ? '66%' : '100%'
+                          }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Additional Info Card */}
+                <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
+                  <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                    ADDITIONAL INFORMATION
+                  </Text>
+                  
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons name="folder-outline" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
+                    <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                      Folder: {password.folder}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons name="calendar" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
+                    <Text style={[styles.infoText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                      Added: {formatDate(password.dateAdded)}
+                    </Text>
+                  </View>
+                  
+                  {password.lastModified && (
+                    <View style={styles.infoRow}>
+                      <MaterialCommunityIcons name="update" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
+                      <Text style={[styles.infoText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                        Modified: {formatDate(password.lastModified)}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {password.notes && (
+                    <View style={styles.notesContainer}>
+                      <Text style={[styles.notesLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                        NOTES
+                      </Text>
+                      <Text style={[styles.notesText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+                        {password.notes}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Add bottom padding */}
+                <View style={{ height: 50, backgroundColor: screenBackgroundColor, width: '100%' }} />
+              </ScrollView>
             </View>
           </View>
-        </Animated.View>
+        </TouchableWithoutFeedback>
         
-        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-          {/* Additional Info Card */}
-          <View style={[styles.card, { backgroundColor: isDark ? '#2A2A2A' : 'white' }]}>
-            <Text style={[styles.cardLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              ADDITIONAL INFORMATION
-            </Text>
-            
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="folder-outline" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
-              <Text style={[styles.infoText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                Folder: {password.folder}
-              </Text>
-            </View>
-            
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="calendar" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
-              <Text style={[styles.infoText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                Added: {formatDate(password.dateAdded)}
-              </Text>
-            </View>
-            
-            {password.lastModified && (
-              <View style={styles.infoRow}>
-                <MaterialCommunityIcons name="update" size={16} color={isDark ? '#AAAAAA' : '#666666'} />
-                <Text style={[styles.infoText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  Modified: {formatDate(password.lastModified)}
-                </Text>
-              </View>
-            )}
-            
-            {password.notes && (
-              <View style={styles.notesContainer}>
-                <Text style={[styles.notesLabel, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-                  NOTES
-                </Text>
-                <Text style={[styles.notesText, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-                  {password.notes}
-                </Text>
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      </ScrollView>
-      
-      {/* CustomModal for delete confirmation */}
-      <CustomModal
-        visible={modalVisible}
-        title={modalContent.title}
-        message={modalContent.message}
-        type={modalContent.type}
-        isDark={isDark}
-        onDismiss={() => setModalVisible(false)}
-        onConfirm={handleDelete}
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
+        {/* CustomModal for delete confirmation */}
+        <CustomModal
+          visible={modalVisible}
+          title={modalContent.title}
+          message={modalContent.message}
+          type={modalContent.type}
+          isDark={isDark}
+          onDismiss={() => setModalVisible(false)}
+          onConfirm={handleDelete}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      </KeyboardAvoidingView>
     </View>
+    </SafeScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    marginTop: 25,
     paddingVertical: 12,
     borderBottomWidth: 1,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 15,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    zIndex: 10,
   },
   headerTitle: {
     fontSize: 18,
@@ -364,16 +448,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
   },
   card: {
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
     elevation: 2,
   },
   cardLabel: {

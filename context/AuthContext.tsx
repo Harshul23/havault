@@ -141,7 +141,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const passwordsData = await AsyncStorage.getItem(userPasswordsKey);
       if (!passwordsData) {
         // Initialize with empty array
+        console.log(`Initializing empty passwords array for user ${userId}`);
         await AsyncStorage.setItem(userPasswordsKey, JSON.stringify([]));
+      } else {
+        console.log(`Found existing passwords for user ${userId}`);
       }
       
       // Check if folders exist for this user
@@ -149,18 +152,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!foldersData) {
         // Initialize with default folders
         const defaultFolders = ['Personal', 'Work', 'Finance'];
+        console.log(`Initializing default folders for user ${userId}`);
         await AsyncStorage.setItem(userFoldersKey, JSON.stringify(defaultFolders));
+      } else {
+        console.log(`Found existing folders for user ${userId}`);
       }
       
       // Check if theme preference exists for this user
       const themeData = await AsyncStorage.getItem(userThemeKey);
       if (!themeData) {
         // Initialize with system default
+        console.log(`Initializing theme preference for user ${userId}`);
         await AsyncStorage.setItem(userThemeKey, JSON.stringify('system'));
+      } else {
+        console.log(`Found existing theme preference for user ${userId}`);
       }
       
+      return true;
     } catch (error) {
       console.error('Failed to initialize user data:', error);
+      return false;
     }
   };
   
@@ -213,7 +224,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       // Initialize user data storage if not already done
-      await initializeUserData(foundUserId);
+      const initSuccess = await initializeUserData(foundUserId);
+      
+      if (!initSuccess) {
+        console.warn(`Warning: Failed to initialize user data for ${foundUserId}`);
+      }
       
       setUser(loggedInUser);
       await SecureStore.setItemAsync(CURRENT_USER_KEY, JSON.stringify(loggedInUser));

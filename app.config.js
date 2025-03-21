@@ -5,10 +5,11 @@ module.exports = {
   orientation: "portrait",
   icon: "./assets/1741520661019.png",
   userInterfaceStyle: "light",
+  scheme: "havault",
   splash: {
     image: "./assets/1741520661019.png",
     resizeMode: "contain",
-    backgroundColor: "#ffffff"
+    backgroundColor: "#121212"
   },
   updates: {
     fallbackToCacheTimeout: 0
@@ -24,7 +25,7 @@ module.exports = {
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/1741520661019.png",
-      backgroundColor: "#FFFFFF"
+      backgroundColor: "#121212"
     },
     package: "com.metaworld.havault",
     versionCode: 1,
@@ -43,9 +44,18 @@ module.exports = {
     favicon: "./assets/1741520661019.png"
   },
   description: "Secure password manager with encrypted local storage",
+  plugins: [
+    "expo-secure-store",
+    "expo-splash-screen"
+  ],
   extra: {
     // App-specific configuration
     appName: "Havault",
-    displayName: "Havault"
-  }
+    displayName: "Havault",
+    eas: {
+      projectId: "f6913340-e2f1-4248-9df6-18df2e93bc4a"
+    }
+  },
+  // Enable the new architecture for better performance
+  newArchEnabled: true
 }; 

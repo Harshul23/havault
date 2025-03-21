@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -31,6 +31,14 @@ const ChangeMasterPasswordScreen: React.FC = () => {
     message: '',
     buttons: [{ text: 'OK' }]
   });
+  
+  // Add isMounted ref to prevent animations on unmounted components
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
   
   const showAlert = (title: string, message: string, buttons = [{ text: 'OK' }]) => {
     setAlertConfig({ title, message, buttons });
@@ -74,116 +82,116 @@ const ChangeMasterPasswordScreen: React.FC = () => {
   
   return (
     <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
     >
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: isDark ? '#1E1E1E' : 'white' }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons 
-            name="arrow-back" 
-            size={24} 
-            color={isDark ? '#DDDDDD' : '#333333'} 
-          />
-        </TouchableOpacity>
-        
-        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-          Change Master Password
-        </Text>
-        
-        <View style={{ width: 30 }} /> {/* Spacer for center alignment */}
-      </View>
-      
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        <Animated.View 
-          style={styles.formContainer}
-          entering={FadeIn.duration(300)}
-        >
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              Current Password
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: isDark ? '#2A2A2A' : 'white',
-                  color: isDark ? '#FFFFFF' : '#333333',
-                  borderColor: isDark ? '#333333' : '#E0E0E0'
-                }
-              ]}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Enter current password"
-              placeholderTextColor={isDark ? '#666666' : '#999999'}
-              secureTextEntry
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              New Password
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: isDark ? '#2A2A2A' : 'white',
-                  color: isDark ? '#FFFFFF' : '#333333',
-                  borderColor: isDark ? '#333333' : '#E0E0E0'
-                }
-              ]}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Enter new password"
-              placeholderTextColor={isDark ? '#666666' : '#999999'}
-              secureTextEntry
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
-              Confirm Password
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: isDark ? '#2A2A2A' : 'white',
-                  color: isDark ? '#FFFFFF' : '#333333',
-                  borderColor: isDark ? '#333333' : '#E0E0E0'
-                }
-              ]}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              placeholderTextColor={isDark ? '#666666' : '#999999'}
-              secureTextEntry
-            />
-          </View>
-          
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' },
-              isLoading && { opacity: 0.7 }
-            ]}
-            onPress={handleChangePassword}
-            disabled={isLoading}
+      <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: isDark ? '#1E1E1E' : 'white' }]}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
           >
-            <Text style={styles.saveButtonText}>
-              {isLoading ? 'Changing...' : 'Change Password'}
-            </Text>
+            <Ionicons 
+              name="arrow-back" 
+              size={24} 
+              color={isDark ? '#DDDDDD' : '#333333'} 
+            />
           </TouchableOpacity>
-        </Animated.View>
-      </ScrollView>
+          
+          <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+            Change Master Password
+          </Text>
+          
+          <View style={{ width: 30 }} /> {/* Spacer for center alignment */}
+        </View>
+        
+        <ScrollView style={styles.scrollView}>
+          {isMounted.current && (
+            <Animated.View 
+              style={styles.formContainer}
+              entering={FadeIn.duration(300)}
+            >
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  Current Password
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { 
+                      backgroundColor: isDark ? '#2A2A2A' : 'white',
+                      color: isDark ? '#FFFFFF' : '#333333',
+                      borderColor: isDark ? '#333333' : '#E0E0E0'
+                    }
+                  ]}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter current password"
+                  placeholderTextColor={isDark ? '#666666' : '#999999'}
+                  secureTextEntry
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  New Password
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { 
+                      backgroundColor: isDark ? '#2A2A2A' : 'white',
+                      color: isDark ? '#FFFFFF' : '#333333',
+                      borderColor: isDark ? '#333333' : '#E0E0E0'
+                    }
+                  ]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  placeholderTextColor={isDark ? '#666666' : '#999999'}
+                  secureTextEntry
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+                  Confirm Password
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { 
+                      backgroundColor: isDark ? '#2A2A2A' : 'white',
+                      color: isDark ? '#FFFFFF' : '#333333',
+                      borderColor: isDark ? '#333333' : '#E0E0E0'
+                    }
+                  ]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={isDark ? '#666666' : '#999999'}
+                  secureTextEntry
+                />
+              </View>
+              
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: isDark ? '#7B68EE' : '#6A5ACD' },
+                  isLoading && { opacity: 0.7 }
+                ]}
+                onPress={handleChangePassword}
+                disabled={isLoading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isLoading ? 'Changing...' : 'Change Password'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </ScrollView>
+      </View>
       
       {/* Custom Alert */}
       <CustomAlert
@@ -207,6 +215,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 60,
+    marginTop: 35,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 15,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     paddingHorizontal: 16,
   },
   backButton: {
@@ -216,11 +232,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  content: {
+  scrollView: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
   },
   formContainer: {
     marginTop: 16,

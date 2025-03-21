@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -6,17 +6,18 @@ import {
   TextInput, 
   TouchableOpacity,
   FlatList,
-  Alert,
   Keyboard
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Animated, { FadeIn, SlideInRight, SlideOutRight } from 'react-native-reanimated';
-import { Navigation } from '../navigation';
 import CustomModal from '../components/CustomModal';
+import { usePassword } from '../PasswordContext';
+import SwipeableRow from '../components/SwipeableRow';
+import { useIsMountedRef, useSafeReanimatedTransition } from '../utils/animationUtils';
 
 type RouteParams = {
   params: {
@@ -24,13 +25,37 @@ type RouteParams = {
   }
 };
 
+// Add ErrorBoundary class to handle potential SwipeableRow errors
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI when SwipeableRow fails
+      return this.props.children;
+    }
+
+    return this.props.children;
+  }
+}
+
 const ManageFoldersScreen = () => {
   const route = useRoute<RouteProp<RouteParams, 'params'>>();
   const initialFolders = route.params?.folders || ['Personal', 'Work', 'Finance'];
-  const navigation = useNavigation<Navigation<'ManageFolders'>>();
-  const { theme } = useTheme();
+  const navigation = useNavigation();
+  const { isDark } = useTheme();
   const { user } = useAuth();
-  const isDark = theme === 'dark';
+  const { updatePasswordsFolder } = usePassword();
+  
+  const isMounted = useIsMountedRef();
+  const isFocused = useIsFocused();
   
   const [folders, setFolders] = useState(initialFolders);
   const [newFolderName, setNewFolderName] = useState('');
@@ -43,19 +68,56 @@ const ManageFoldersScreen = () => {
     title: '',
     message: '',
     type: 'info' as 'success' | 'error' | 'warning' | 'info' | 'confirm',
-    folderToDelete: ''
+    folderToDelete: '',
+    afterDismissAction: null as (() => void) | null
   });
   
+  // Cleanup on unmount - ensure no animations run after unmounting
   useEffect(() => {
-    // Redirect to login if no user is logged in
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  
+  // Cancel any pending operations when screen loses focus
+  useEffect(() => {
+    if (!isFocused && isMounted.current) {
+      // Reset any editing state
+      setEditingFolder('');
+      setEditingFolderName('');
+    }
+  }, [isFocused]);
+  
+  useEffect(() => {
     if (!user) {
       navigation.navigate('Login');
     }
   }, [user, navigation]);
   
-  const showModal = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' | 'confirm', folderToDelete = '') => {
-    setModalContent({ title, message, type, folderToDelete });
+  const showModal = (
+    title: string, 
+    message: string, 
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm', 
+    folderToDelete = '',
+    afterDismissAction: (() => void) | null = null
+  ) => {
+    setModalContent({ title, message, type, folderToDelete, afterDismissAction });
     setModalVisible(true);
+  };
+  
+  const handleModalDismiss = (confirmed: boolean = false) => {
+    if (confirmed && modalContent.folderToDelete) {
+      // Actually delete the folder
+      handleDeleteFolder(modalContent.folderToDelete);
+    }
+    
+    setModalVisible(false);
+    
+    // Execute afterDismissAction if it exists (for success modals)
+    if (modalContent.afterDismissAction) {
+      modalContent.afterDismissAction();
+    }
   };
   
   const handleAddFolder = async () => {
@@ -84,12 +146,8 @@ const ManageFoldersScreen = () => {
       showModal('Error', 'Failed to add folder. Please try again.', 'error');
     }
   };
-  
-  interface Folder {
-    name: string;
-  }
 
-  const handleEditFolder = (folder: string): void => {
+  const handleEditFolder = (folder: string) => {
     setEditingFolder(folder);
     setEditingFolderName(folder);
   };
@@ -101,9 +159,21 @@ const ManageFoldersScreen = () => {
       return;
     }
     
+    if (editingFolderName.trim().toLowerCase() === 'all' && editingFolder !== 'All') {
+      showModal('Reserved Folder Name', 'The name "All" is reserved for the default folder and cannot be used.', 'error');
+      return;
+    }
+    
     if (folders.includes(editingFolderName.trim()) && editingFolderName.trim() !== editingFolder) {
       showModal('Folder Exists', 'A folder with this name already exists.', 'error');
       return;
+    }
+    
+    // Skip update if name hasn't changed
+    if (editingFolderName.trim() === editingFolder) {
+      setEditingFolder(null);
+      setEditingFolderName('');
+      return; // No changes, so just exit edit mode without showing success message
     }
     
     const updatedFolders = folders.map(folder => 
@@ -114,18 +184,7 @@ const ManageFoldersScreen = () => {
       const userFoldersKey = `folders_${user.id}`;
       await AsyncStorage.setItem(userFoldersKey, JSON.stringify(updatedFolders));
       
-      // Update passwords in this folder
-      const userPasswordsKey = `passwords_${user.id}`;
-      const storedPasswords = await AsyncStorage.getItem(userPasswordsKey);
-      if (storedPasswords) {
-        const passwords = JSON.parse(storedPasswords);
-        const updatedPasswords = passwords.map((password: { folder: string; [key: string]: any }) => 
-          password.folder === editingFolder 
-            ? { ...password, folder: editingFolderName.trim() }
-            : password
-        );
-        await AsyncStorage.setItem(userPasswordsKey, JSON.stringify(updatedPasswords));
-      }
+      await updatePasswordsFolder(editingFolder || '', editingFolderName.trim());
       
       setFolders(updatedFolders);
       setEditingFolder(null);
@@ -137,66 +196,104 @@ const ManageFoldersScreen = () => {
     }
   };
   
-  interface Password {
-    folder: string;
-    [key: string]: any;
-  }
-  
   const handleConfirmDeleteFolder = (folderToDelete: string) => {
+    if (folderToDelete === 'All') {
+      showModal(
+        'Cannot Delete',
+        'The "All" folder cannot be deleted as it is the default folder.',
+        'error'
+      );
+      return;
+    }
+    
     showModal(
       'Delete Folder',
-      `Are you sure you want to delete "${folderToDelete}"? All passwords in this folder will be moved to "Personal".`,
+      'Are you sure you want to delete "' + folderToDelete + '"? All passwords in this folder will be moved to the "All" folder.',
       'confirm',
       folderToDelete
     );
   };
   
-  const handleDeleteFolder = async (): Promise<void> => {
+  const handleDeleteFolder = async (folderToDelete?: string) => {
     if (!user) return;
     
-    const folderToDelete = modalContent.folderToDelete;
-    if (!folderToDelete) return;
+    // Use the parameter if provided, otherwise use the one from modalContent
+    const folderName = folderToDelete || modalContent.folderToDelete;
+    if (!folderName) return;
     
-    const updatedFolders = folders.filter(folder => folder !== folderToDelete);
+    if (folderName === 'All') {
+      showModal(
+        'Cannot Delete',
+        'The "All" folder cannot be deleted as it is the default folder.',
+        'error'
+      );
+      return;
+    }
+    
+    const updatedFolders = folders.filter(folder => folder !== folderName);
+    setFolders(updatedFolders);
     
     try {
-      // Update folders
       const userFoldersKey = `folders_${user.id}`;
       await AsyncStorage.setItem(userFoldersKey, JSON.stringify(updatedFolders));
       
-      // Move passwords to Personal folder
-      const userPasswordsKey = `passwords_${user.id}`;
-      const storedPasswords = await AsyncStorage.getItem(userPasswordsKey);
-      if (storedPasswords) {
-        const passwords = JSON.parse(storedPasswords);
-        const updatedPasswords = passwords.map((password: Password) => 
-          password.folder === folderToDelete 
-            ? { ...password, folder: 'Personal' } 
-            : password
-        );
-        await AsyncStorage.setItem(userPasswordsKey, JSON.stringify(updatedPasswords));
-      }
+      await updatePasswordsFolder(folderName, 'All');
       
-      setFolders(updatedFolders);
-      showModal('Success', 'Folder deleted successfully', 'success');
+      const refreshFoldersAfterDismiss = () => {
+        (navigation as any).navigate('Home', { 
+          folderDeleted: true,
+          timestamp: Date.now()
+        });
+      };
+      
+      showModal(
+        'Success', 
+        'Folder deleted successfully', 
+        'success',
+        '',
+        refreshFoldersAfterDismiss
+      );
     } catch (error) {
       console.error('Failed to delete folder:', error);
+      setFolders([...folders]);
       showModal('Error', 'Failed to delete folder. Please try again.', 'error');
     }
   };
   
-  const renderFolder = ({ item }: { item: string }) => {
+  const renderFolder = useCallback(({ item }: { item: string }) => {
     const isEditing = item === editingFolder;
     
-    return (
-      <Animated.View 
-        entering={SlideInRight.duration(300)}
-        exiting={SlideOutRight.duration(300)}
-        style={[
-          styles.folderItem, 
-          { backgroundColor: isDark ? '#2A2A2A' : 'white' }
-        ]}
-      >
+    // Skip "All" folder since it's the default and shouldn't be modified
+    if (item === 'All') {
+      return (
+        <Animated.View 
+          entering={isMounted.current ? SlideInRight.duration(300) : undefined}
+          exiting={isMounted.current ? SlideOutRight.duration(300) : undefined}
+          style={[
+            styles.folderItem, 
+            { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+          ]}
+        >
+          <View style={styles.folderIconContainer}>
+            <MaterialCommunityIcons 
+              name="folder-multiple" 
+              size={24} 
+              color={isDark ? '#7B68EE' : '#6A5ACD'} 
+            />
+          </View>
+          <Text style={[styles.folderName, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+            {item} (Default)
+          </Text>
+        </Animated.View>
+      );
+    }
+    
+    // For editable folders, implement swipeable
+    const folderContent = (
+      <View style={[
+        styles.folderItem, 
+        { backgroundColor: isDark ? '#2A2A2A' : 'white' }
+      ]}>
         <View style={styles.folderIconContainer}>
           <MaterialCommunityIcons 
             name="folder" 
@@ -224,72 +321,78 @@ const ManageFoldersScreen = () => {
             {item}
           </Text>
         )}
-        
-        <View style={styles.folderActions}>
-          {isEditing ? (
-            <TouchableOpacity 
-              style={styles.folderActionButton}
-              onPress={handleUpdateFolder}
+      </View>
+    );
+    
+    // When not in editing mode, use SwipeableRow
+    if (!isEditing) {
+      // Only apply animations when component is mounted and screen is focused
+      const animations = useSafeReanimatedTransition(
+        SlideInRight.duration(300),
+        SlideOutRight.duration(300),
+        isMounted
+      );
+      
+      return (
+        <Animated.View 
+          entering={isFocused ? animations.entering : undefined}
+          exiting={isFocused ? animations.exiting : undefined}
+        >
+          <ErrorBoundary>
+            <SwipeableRow
+              onDelete={() => handleConfirmDeleteFolder(item)}
+              onEdit={() => handleEditFolder(item)}
+              isDark={isDark}
+              itemName="folder"
             >
-              <Ionicons 
-                name="checkmark" 
-                size={22} 
-                color={isDark ? '#4CAF50' : '#4CAF50'} 
-              />
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity 
-                style={styles.folderActionButton}
-                onPress={() => handleEditFolder(item)}
-              >
-                <Ionicons 
-                  name="pencil" 
-                  size={20} 
-                  color={isDark ? '#AAAAAA' : '#666666'} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.folderActionButton}
-                onPress={() => handleConfirmDeleteFolder(item)}
-                disabled={item === 'Personal' || item === 'Work' || item === 'Finance'}
-              >
-                <Ionicons 
-                  name="trash-outline" 
-                  size={20} 
-                  color={item === 'Personal' || item === 'Work' || item === 'Finance' 
-                    ? (isDark ? '#555555' : '#CCCCCC') 
-                    : (isDark ? '#AAAAAA' : '#666666')} 
-                />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+              {folderContent}
+            </SwipeableRow>
+          </ErrorBoundary>
+        </Animated.View>
+      );
+    }
+    
+    // When in editing mode, show without swipeable
+    // Only apply animations when component is mounted and screen is focused
+    const animations = useSafeReanimatedTransition(
+      SlideInRight.duration(300),
+      SlideOutRight.duration(300),
+      isMounted
+    );
+    
+    return (
+      <Animated.View 
+        entering={isFocused ? animations.entering : undefined}
+        exiting={isFocused ? animations.exiting : undefined}
+      >
+        {folderContent}
       </Animated.View>
     );
-  };
+  }, [isDark, editingFolder, editingFolderName, handleUpdateFolder, handleConfirmDeleteFolder, handleEditFolder, isMounted, isFocused]);
   
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#121212' : '#F5F5F5' }]}>
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: isDark ? '#1E1E1E' : 'white' }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons 
-            name="arrow-back" 
-            size={24} 
-            color={isDark ? '#DDDDDD' : '#333333'} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons 
+              name="arrow-back" 
+              size={24} 
+              color={isDark ? '#DDDDDD' : '#333333'} 
+            />
+          </TouchableOpacity>
+        </View>
         
-        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-          Manage Folders
-        </Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#333333' }]}>
+            Manage Folders
+          </Text>
+        </View>
         
-        <View style={{ width: 30 }} /> {/* Spacer for center alignment */}
+        <View style={styles.headerRight} />
       </View>
       
       <View style={styles.content}>
@@ -345,8 +448,9 @@ const ManageFoldersScreen = () => {
         title={modalContent.title}
         message={modalContent.message}
         type={modalContent.type}
-        onConfirm={handleDeleteFolder}
-        onCancel={() => setModalVisible(false)}
+        onDismiss={handleModalDismiss}
+        confirmText="Delete"
+        isDark={isDark}
       />
     </View>
   );
@@ -370,11 +474,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  headerLeft: {
+    width: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 40,
+  },
   backButton: {
     padding: 6,
   },
   headerTitle: {
-    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
